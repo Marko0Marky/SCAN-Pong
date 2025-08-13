@@ -186,17 +186,35 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>
+        // Global error handler to catch unhandled errors
+        window.onerror = function(message, source, lineno, colno, error) {
+            console.error(`Error: ${message} at ${source}:${lineno}:${colno}`, error);
+        };
+
         // --- ESCAF core ---
         (() => {
             // Numerical helpers
             const eps = 1e-9;
             function zeros(n,m){ const A = new Array(n); for(let i=0;i<n;i++) A[i]=new Array(m).fill(0); return A; }
             function vecZeros(n){ return new Array(n).fill(0); }
-            function dot(a,b){ let s=0; for(let i=0;i<a.length;i++) s+=a[i]*b[i]; return s; }
+            function dot(a,b){ 
+                if (!a || !b || a.length !== b.length) {
+                    console.warn('Invalid vectors for dot product', a, b);
+                    return 0;
+                }
+                let s=0; for(let i=0;i<a.length;i++) s+=a[i]*b[i]; 
+                return isNaN(s) ? 0 : s; 
+            }
+            function normL2(a){ // Enhanced with input validation
+                if (!a || a.length === 0) {
+                    console.warn('Invalid vector for normL2', a);
+                    return 0;
+                }
+                return Math.sqrt(Math.max(eps, dot(a,a)));
+            }
             function add(a,b){ return a.map((v,i)=>v+b[i]); }
             function sub(a,b){ return a.map((v,i)=>v-b[i]); }
             function mulScalar(a,s){ return a.map(v=>v*s); }
-            function normL2(a){ return Math.sqrt(Math.max(eps, dot(a,a))); }
             function tanhVec(a){ return a.map(Math.tanh); }
             function softmax(arr){
                 const max = Math.max(...arr);
@@ -391,7 +409,7 @@
                     const r_h = matVecMul(this.rewardW1, next.concat(nextQ));
                     for(let i=0;i<r_h.length;i++) r_h[i] = Math.tanh(r_h[i] + this.rewardB1[i]);
                     const r = matVecMul(this.rewardW2, r_h)[0] + this.rewardB2[0];
-                    return { nextState: next, nextQ, reward: r };
+                    return { nextState: new Float32Array(next), nextQ, reward: r };
                 }
                 storeTransition(s,a,nextS,r,Q,nextQ){
                     this.memory.push({s,a,nextS,r,Q,nextQ});
@@ -515,7 +533,7 @@
                 const gammaPower = Math.sqrt(Q.reduce((s,q) => s + dot(q,q),0) / (Q.length*8));
                 const stability = lastW ? 1 - normL2(sub(W.flat(), lastW.flat())) / (normL2(W.flat()) + 1e-6) : 1;
                 const syncolatorScore = syntrices.reduce((s, c) => s + c.persistence, 0);
-                const consensus = params.consensus || 0.0; // Will be updated by HierarchicalConsensus
+                const consensus = params.consensus || 0.0;
                 const raw = S + 1.0*Icoh + 0.3*Qbind + 0.5*AST - 0.01*Comp 
                            + 0.1*gammaPower - 0.15*(1-stability) + 0.05*syncolatorScore + 0.05*consensus;
                 const C = 1/(1+Math.exp(-raw));
@@ -723,10 +741,11 @@
 
             window.ESCAF = {
                 geoProduct, dagger, qualiaBindMatrix, logSinkhornFromScores,
-                ASTFilter, WorldModel, Syncolator, HierarchicalConsensus, computeConsciousness, ProofHarness, SENCSOMPlayer
+                ASTFilter, WorldModel, Syncolator, HierarchicalConsensus, computeConsciousness, ProofHarness, SENCSOMPlayer,
+                dot, normL2 // Added normL2 to ESCAF
             };
 
-            console.info("ESCAF core loaded: geoProduct, qualiaBindMatrix, ASTFilter, WorldModel, Syncolator, HierarchicalConsensus, SENCSOMPlayer available on window.ESCAF");
+            console.info("ESCAF core loaded: geoProduct, qualiaBindMatrix, ASTFilter, WorldModel, Syncolator, HierarchicalConsensus, SENCSOMPlayer, dot, normL2 available on window.ESCAF");
         })();
 
         // Game and Visualization Code
@@ -936,10 +955,19 @@
                 const idempErr = lastW ? ph.checkIdempotence(out.W, lastW) : 0;
                 const coalgErr = ph.checkCoalgebra(out.a, out.atilde);
                 const gwLip = lastW ? ph.checkGWLip(out.consciousness, lastC, out.W, lastW, model.L_theta) : { diff: 0, fw: 0 };
-                const lyapErr = lastW ? ph.checkLyapunov(
-                    normL2(out.noeons.flat()) + normL2(out.a) + 0.1 * out.W.flat().reduce((s,v)=>s+v,0) + 0.05 * out.Q.reduce((s,q)=>s+normL2(q),0),
-                    lastW ? (normL2(model.stateHistory.slice(-2,-1)[0] || out.noeons.flat()) + normL2(out.a) + 0.1 * lastW.flat().reduce((s,v)=>s+v,0) + 0.05 * model.qualiaHistory.slice(-2,-1)[0].reduce((s,q)=>s+normL2(q),0)) : 0
-                ) : 0;
+                // Robust Lyapunov check with history validation
+                let lyapErr = 0;
+                if (lastW && model.stateHistory.length >= 2 && model.qualiaHistory.length >= 2) {
+                    const prevState = model.stateHistory[model.stateHistory.length - 2] || out.noeons.flat();
+                    const prevQualia = model.qualiaHistory[model.qualiaHistory.length - 2] || out.Q[0];
+                    const Vb = ESCAF.normL2(out.noeons.flat()) + ESCAF.normL2(out.a) + 
+                               0.1 * out.W.flat().reduce((s,v)=>s+v,0) + 
+                               0.05 * out.Q.reduce((s,q)=>s+ESCAF.normL2(q),0);
+                    const Va = ESCAF.normL2(prevState) + ESCAF.normL2(out.a) + 
+                               0.1 * lastW.flat().reduce((s,v)=>s+v,0) + 
+                               0.05 * prevQualia.reduce((s,q)=>s+ESCAF.normL2([q]),0);
+                    lyapErr = ph.checkLyapunov(Vb, Va);
+                }
                 const report = ph.report();
                 proofMetrics.innerHTML = `
                     <div class="proof-metric ${daggerErr <= ph.tol ? 'proof-pass' : 'proof-fail'}">Dagger Error: ${daggerErr.toFixed(6)} (${report.dagger.toFixed(2)})</div>
