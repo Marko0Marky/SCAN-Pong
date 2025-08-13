@@ -153,6 +153,7 @@
             <div class="metric"><span class="metric-label">Current Action:</span><span id="action" class="metric-value action-idle">IDLE</span></div>
             <div class="metric"><span class="metric-label">Performance:</span><span id="performance" class="metric-value">0.0%</span></div>
             <div class="metric"><span class="metric-label">Imagination Depth:</span><span id="imagination-depth" class="metric-value">3</span></div>
+            <div class="metric"><span class="metric-label">Imagination Loss:</span><span id="imagination-loss" class="metric-value">0.00</span></div>
             <h3>🔮 Internal Observer Stream</h3>
             <div id="thought-log"></div>
             <div class="imagination-section">
@@ -185,10 +186,9 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>
-        // --- ESCAF core (drop-in replacement) ---
-        // Improved Clifford tensor, qualia kernel (PSD), log-sinkhorn, AST, WorldModel, Consciousness, ProofHarness, SENCSOMPlayer
+        // --- ESCAF core ---
         (() => {
-            // tiny numerical helpers
+            // Numerical helpers
             const eps = 1e-9;
             function zeros(n,m){ const A = new Array(n); for(let i=0;i<n;i++) A[i]=new Array(m).fill(0); return A; }
             function vecZeros(n){ return new Array(n).fill(0); }
@@ -198,7 +198,6 @@
             function mulScalar(a,s){ return a.map(v=>v*s); }
             function normL2(a){ return Math.sqrt(Math.max(eps, dot(a,a))); }
             function tanhVec(a){ return a.map(Math.tanh); }
-            function reluVec(a){ return a.map(v=>Math.max(0,v)); }
             function softmax(arr){
                 const max = Math.max(...arr);
                 const exps = arr.map(x=>Math.exp(Math.max(-50, Math.min(50, x-max))));
@@ -207,7 +206,7 @@
             }
             function clamp(x, lo, hi){ return Math.max(lo, Math.min(hi, x)); }
 
-            // ----------------- Clifford tensor for Cl(3,0) -----------------
+            // Clifford tensor for Cl(3,0)
             const CLIFF = (function buildClifford(){
                 const T = [];
                 for(let a=0;a<8;a++){
@@ -232,6 +231,16 @@
                 T[I][e3][e12] = 1; T[e3][I][e12] = 1;
                 return T;
             })();
+            const CLIFF_BASIS = [
+                [1,0,0,0,0,0,0,0], // scalar
+                [0,1,0,0,0,0,0,0], // e1
+                [0,0,1,0,0,0,0,0], // e2
+                [0,0,0,1,0,0,0,0], // e3
+                [0,0,0,0,1,0,0,0], // e12
+                [0,0,0,0,0,1,0,0], // e23
+                [0,0,0,0,0,0,1,0], // e31
+                [0,0,0,0,0,0,0,1]  // pseudoscalar
+            ];
 
             function geoProduct(q, r){
                 const out = new Array(8).fill(0);
@@ -254,7 +263,7 @@
             const DAG_SIGNS = [1,-1,-1,-1,-1,-1,-1,1];
             function dagger(q){ return q.map((v,i)=>v*DAG_SIGNS[i]); }
 
-            // ----------------- Qualia binding kernel (PSD) -----------------
+            // Qualia binding kernel (PSD)
             function qualiaBindMatrix(Q, alpha=1.0, beta=0.3){
                 const N = Q.length;
                 const B = zeros(N,N);
@@ -270,7 +279,7 @@
                 return B;
             }
 
-            // ----------------- log-domain Sinkhorn (stable) -----------------
+            // Log-domain Sinkhorn
             function logSumExp(arr){
                 const m = Math.max(...arr);
                 let s = 0;
@@ -298,7 +307,7 @@
                 return P;
             }
 
-            // ----------------- Small RNN-esque AST Filter -----------------
+            // AST Filter
             class ASTFilter {
                 constructor(nodeDim=12, hidden=32) {
                     this.nodeDim = nodeDim;
@@ -331,6 +340,7 @@
                     for(let j=0;j<this.nodeDim;j++) this.projW[0][j] -= lr * grad * mean[j];
                     this.projB[0] -= lr * grad;
                 }
+                reset(){ this.state = vecZeros(this.hidden); }
             }
 
             function randomMatrix(rows,cols, scale=0.1){
@@ -350,7 +360,7 @@
                 let s=0; for(let j=0;j<v.length;j++) s+=M[0][j]*v[j]; return s;
             }
 
-            // ----------------- Tiny WorldModel MLP -----------------
+            // WorldModel MLP
             class WorldModel {
                 constructor(stateDim=6, actionDim=3, qDim=8, hidden=64){
                     this.stateDim=stateDim; this.actionDim=actionDim; this.qDim=qDim;
@@ -404,8 +414,70 @@
                 }
             }
 
-            // ----------------- Consciousness functional (browser-friendly approx) -----------------
-            function computeConsciousness(W, X, Q, aSchema, aMeasured, params={}){
+            // Syncolator for Topological Persistence
+            class Syncolator {
+                detect(W, Q) {
+                    const n = W.length;
+                    const cycles = [];
+                    const visited = new Set();
+
+                    function dfs(v, start, path, edges) {
+                        if (path.length > 1 && v === start) {
+                            cycles.push({ nodes: [...path], edges: [...edges] });
+                            return;
+                        }
+                        if (path.length > 6) return;
+                        for (let u = 0; u < n; u++) {
+                            if (W[v][u] > 1e-4 && !path.includes(u)) {
+                                dfs(u, start, [...path, u], [...edges, W[v][u]]);
+                            }
+                        }
+                    }
+
+                    for (let i = 0; i < n; i++) dfs(i, i, [i], []);
+
+                    return cycles.map(cycle => {
+                        const weightProduct = cycle.edges.reduce((a, w) => a * w, 1);
+                        const lengthNorm = Math.sqrt(cycle.edges.reduce((a, w) => a + w * w, 0));
+                        return {
+                            points: cycle.nodes.map(i => Q[i].slice(0,3).map(x => x * 4)),
+                            persistence: weightProduct * Math.exp(-lengthNorm / 0.5)
+                        };
+                    });
+                }
+            }
+
+            // Hierarchical Consensus
+            class HierarchicalConsensus {
+                forward(X_levels) {
+                    let totalDist = 0;
+                    for (let k = 0; k < X_levels.length - 1; k++) {
+                        const C = X_levels[k].map(row => 
+                            X_levels[k+1].map(col => 
+                                row.reduce((s, x, i) => s + (x - col[i])**2, 0)
+                            )
+                        );
+                        const pi = this.sinkhorn(C, 0.1);
+                        totalDist += pi.map((row, i) => row.reduce((s, p, j) => s + p * C[i][j], 0)).reduce((a,b) => a+b, 0);
+                    }
+                    return totalDist / Math.max(1, X_levels.length - 1);
+                }
+                sinkhorn(C, epsilon) {
+                    const n = C.length, m = C[0].length;
+                    let u = Array(n).fill(1/n), v = Array(m).fill(1/m);
+                    const K = C.map(row => row.map(c => Math.exp(-c / epsilon)));
+                    for (let iter = 0; iter < 50; iter++) {
+                        const Ku = K.map(row => row.reduce((s, k, j) => s + k * u[j], 0));
+                        v = v.map((_, j) => 1 / (m * Ku.reduce((s, kui, i) => s + kui * v[j], 0)) || 1);
+                        const Kv = K[0].map((_, j) => K.reduce((s, row, i) => s + row[j] * v[j], 0));
+                        u = u.map((_, i) => 1 / (n * Kv[i]) || 1);
+                    }
+                    return u.map((ui, i) => v.map((vj, j) => ui * K[i][j] * vj));
+                }
+            }
+
+            // Consciousness Functional
+            function computeConsciousness(W, X, Q, aSchema, aMeasured, syntrices, lastW=null, params={}){
                 const lambda = params.lambda || 0.1;
                 const N = W.length;
                 const deg = new Array(N).fill(0);
@@ -440,14 +512,19 @@
                 let AST=0;
                 for(let i=0;i<N;i++) AST -= q[i] * (Math.log(q[i]) - Math.log(p[i]));
                 const Comp = 0.001 * (N + W.flat().filter(x=>x>1e-8).length);
-                const raw = S + 1.0*Icoh + 0.3*Qbind + 0.5*AST - 0.01*Comp;
+                const gammaPower = Math.sqrt(Q.reduce((s,q) => s + dot(q,q),0) / (Q.length*8));
+                const stability = lastW ? 1 - normL2(sub(W.flat(), lastW.flat())) / (normL2(W.flat()) + 1e-6) : 1;
+                const syncolatorScore = syntrices.reduce((s, c) => s + c.persistence, 0);
+                const consensus = params.consensus || 0.0; // Will be updated by HierarchicalConsensus
+                const raw = S + 1.0*Icoh + 0.3*Qbind + 0.5*AST - 0.01*Comp 
+                           + 0.1*gammaPower - 0.15*(1-stability) + 0.05*syncolatorScore + 0.05*consensus;
                 const C = 1/(1+Math.exp(-raw));
-                return { C, parts: {S, I: Icoh, Q: Qbind, AST} };
+                return { C, parts: {S, Icoh, Qbind, AST, gammaPower, stability, syncolatorScore, consensus} };
             }
 
-            // ----------------- Proof Harness (approximations) -----------------
+            // Proof Harness
             class ProofHarness {
-                constructor(tol=1e-3){
+                constructor(tol=1e-6){
                     this.tol = tol;
                     this.metrics = { dagger:[], psd:[], idemp:[], coalg:[], gw_lip:[], lyap:[] };
                 }
@@ -507,10 +584,18 @@
                     this.metrics.lyap.push(d <= this.tol);
                     return d;
                 }
-                report(){ const out={}; for(const k in this.metrics) { const arr=this.metrics[k]; const pass=arr.filter(x=>x).length/Math.max(1,arr.length); out[k]=pass; } return out; }
+                report(){ 
+                    const out={}; 
+                    for(const k in this.metrics) { 
+                        const arr=this.metrics[k]; 
+                        const pass=arr.filter(x=>x).length/Math.max(1,arr.length); 
+                        out[k]=pass; 
+                    } 
+                    return out; 
+                }
             }
 
-            // ----------------- SENCSOM Player (JS) updated -----------------
+            // SENCSOM Player
             class SENCSOMPlayer {
                 constructor(featureDim=6, numNoeons=12, noeonDim=12, q_dim=8){
                     this.featureDim = featureDim;
@@ -519,8 +604,8 @@
                     this.q_dim = q_dim;
                     this.tokenW = randomMatrix(numNoeons, featureDim, 0.2);
                     this.tokenB = new Array(numNoeons).fill(0);
-                    this.syncolator = { detect: (noeons)=> { return [] } };
-                    this.consensus = { forward: (n,s)=>0.0, getConsciousnessStability: ()=>0.0 };
+                    this.syncolator = new Syncolator();
+                    this.hierarchicalConsensus = new HierarchicalConsensus();
                     this.ast = new ASTFilter(noeonDim, Math.max(32, noeonDim*2));
                     this.worldModel = new WorldModel(featureDim, 3, q_dim);
                     this.poset = { geometricProduct: (q1,q2)=>geoProduct(q1,q2).slice(0,q_dim), qualiaBindMatrix };
@@ -531,7 +616,8 @@
                     this.imaginationEnabled = true;
                     this.imaginationDepth = 3;
                     this.actionHistory=[]; this.stateHistory=[]; this.qualiaHistory=[];
-                    this.proof = new ProofHarness(1e-2);
+                    this.proof = new ProofHarness(1e-6);
+                    this.L_theta = 1.0;
                 }
                 tokenizer_forward(x){
                     const noeons = [];
@@ -564,41 +650,52 @@
                 }
                 forward(x){
                     const noeons = this.tokenizer_forward(x);
-                    const Q = noeons.map(n=>{ const g = geoProduct(n,n); return g.slice(0,this.q_dim); });
+                    const Q = noeons.map(n => {
+                        const proj = n.slice(0,8).map((x,i) => x * CLIFF_BASIS[i % 8][i]);
+                        return geoProduct(proj, proj);
+                    });
                     const B = qualiaBindMatrix(Q);
                     const W = logSinkhornFromScores(B, 10);
                     const astOut = this.ast.step(noeons);
                     const a = astOut.a;
                     const atilde = W.map(row => row.reduce((s,v)=>s+v,0));
-                    const X = noeons.map(n=> n.slice(0, Math.min(n.length, 12)) );
-                    const consObj = computeConsciousness(W, X, Q, a, atilde);
+                    const X = noeons.map(n => n.slice(0, Math.min(n.length, 12)));
+                    const syntrices = this.syncolator.detect(W, Q);
+                    const consensus = this.hierarchicalConsensus.forward([X]);
+                    const consObj = computeConsciousness(W, X, Q, a, atilde, syntrices, this.lastW, {consensus});
                     const consciousness = consObj.C;
                     const qpool = vecZeros(this.q_dim);
                     for(let i=0;i<Q.length;i++) for(let j=0;j<this.q_dim;j++) qpool[j]+=Q[i][j];
                     for(let j=0;j<this.q_dim;j++) qpool[j]/=Q.length;
                     const gammaPower = Math.min(1, Math.sqrt(Q.reduce((s,q)=>s + dot(q,q),0) / (Q.length*8)));
-                    const stability = 1.0 - Math.abs(astOut.s.reduce((s,v)=>s+Math.abs(v),0)/(astOut.s.length+eps));
+                    const stability = consObj.parts.stability;
                     const enhanced = x.concat(qpool.slice(0, Math.max(0, Math.min(3,qpool.length)))).concat([consciousness, gammaPower, stability]);
-                    const logits = [ matVecDot([this.actorW[0]], enhanced)+this.actorB[0],
-                                    matVecDot([this.actorW[1]], enhanced)+this.actorB[1],
-                                    matVecDot([this.actorW[2]], enhanced)+this.actorB[2] ];
-                    let action, actionProbs;
+                    const logits = [
+                        matVecDot([this.actorW[0]], enhanced)+this.actorB[0],
+                        matVecDot([this.actorW[1]], enhanced)+this.actorB[1],
+                        matVecDot([this.actorW[2]], enhanced)+this.actorB[2]
+                    ];
+                    let action, actionProbs, imaginationLoss = 0;
                     if(this.imaginationEnabled && consciousness > 0.35){
                         const dreams = this.imagine(x, qpool, this.imaginationDepth);
                         action = dreams[0].action;
                         actionProbs = [0.1,0.1,0.1]; actionProbs[action]=0.8;
                         this.lastImagination = dreams;
+                        imaginationLoss = -dreams.reduce((loss, path) => {
+                            const p = actionProbs[path.action];
+                            return loss + p * path.value;
+                        }, 0);
                     } else {
                         actionProbs = softmax(logits);
                         action = actionProbs.indexOf(Math.max(...actionProbs));
                         this.lastImagination = [];
                     }
                     const value = matVecDot(this.criticW, enhanced) + this.criticB[0];
+                    this.lastW = W.map(row => row.slice());
                     return {
-                        action, actionProbs, value,
+                        action, actionProbs, value, imaginationLoss,
                         noeons, Q, W, a, atilde,
-                        syntrices: this.syncolator.detect(noeons),
-                        consciousness, gammaPower, stability, drives: [], imagination: this.lastImagination
+                        syntrices, consciousness, gammaPower, stability, drives: [], imagination: this.lastImagination
                     };
                 }
                 train(x, reward, nextX=null){
@@ -620,16 +717,16 @@
                     this.stateHistory.push(x.slice());
                     this.qualiaHistory.push(out.Q[0]);
                     if(this.actionHistory.length > 200){ this.actionHistory.shift(); this.stateHistory.shift(); this.qualiaHistory.shift(); }
-                    return Math.abs(advantage) + astError;
+                    return Math.abs(advantage) + astError + out.imaginationLoss;
                 }
             }
 
             window.ESCAF = {
                 geoProduct, dagger, qualiaBindMatrix, logSinkhornFromScores,
-                ASTFilter, WorldModel, computeConsciousness, ProofHarness, SENCSOMPlayer
+                ASTFilter, WorldModel, Syncolator, HierarchicalConsensus, computeConsciousness, ProofHarness, SENCSOMPlayer
             };
 
-            console.info("ESCAF core loaded: geoProduct, qualiaBindMatrix, ASTFilter, WorldModel, SENCSOMPlayer available on window.ESCAF");
+            console.info("ESCAF core loaded: geoProduct, qualiaBindMatrix, ASTFilter, WorldModel, Syncolator, HierarchicalConsensus, SENCSOMPlayer available on window.ESCAF");
         })();
 
         // Game and Visualization Code
@@ -838,14 +935,19 @@
                 const psdMin = ph.checkPSD(ESCAF.qualiaBindMatrix(out.Q));
                 const idempErr = lastW ? ph.checkIdempotence(out.W, lastW) : 0;
                 const coalgErr = ph.checkCoalgebra(out.a, out.atilde);
-                const gwLip = lastW ? ph.checkGWLip(out.consciousness, lastC, out.W, lastW, model.L_theta || 1.0) : { diff: 0, fw: 0 };
+                const gwLip = lastW ? ph.checkGWLip(out.consciousness, lastC, out.W, lastW, model.L_theta) : { diff: 0, fw: 0 };
+                const lyapErr = lastW ? ph.checkLyapunov(
+                    normL2(out.noeons.flat()) + normL2(out.a) + 0.1 * out.W.flat().reduce((s,v)=>s+v,0) + 0.05 * out.Q.reduce((s,q)=>s+normL2(q),0),
+                    lastW ? (normL2(model.stateHistory.slice(-2,-1)[0] || out.noeons.flat()) + normL2(out.a) + 0.1 * lastW.flat().reduce((s,v)=>s+v,0) + 0.05 * model.qualiaHistory.slice(-2,-1)[0].reduce((s,q)=>s+normL2(q),0)) : 0
+                ) : 0;
                 const report = ph.report();
                 proofMetrics.innerHTML = `
-                    <div class="proof-metric ${daggerErr <= ph.tol ? 'proof-pass' : 'proof-fail'}">Dagger Error: ${daggerErr.toFixed(4)} (${report.dagger.toFixed(2)})</div>
-                    <div class="proof-metric ${psdMin >= -ph.tol ? 'proof-pass' : 'proof-fail'}">PSD Min RQ: ${psdMin.toFixed(4)} (${report.psd.toFixed(2)})</div>
-                    <div class="proof-metric ${idempErr <= ph.tol ? 'proof-pass' : 'proof-fail'}">Idempotence Error: ${idempErr.toFixed(4)} (${report.idemp.toFixed(2)})</div>
-                    <div class="proof-metric ${coalgErr <= ph.tol ? 'proof-pass' : 'proof-fail'}">Coalgebra Error: ${coalgErr.toFixed(4)} (${report.coalg.toFixed(2)})</div>
-                    <div class="proof-metric ${gwLip.diff <= ph.tol ? 'proof-pass' : 'proof-fail'}">GW-Lipschitz Diff: ${gwLip.diff.toFixed(4)} (${report.gw_lip.toFixed(2)})</div>
+                    <div class="proof-metric ${daggerErr <= ph.tol ? 'proof-pass' : 'proof-fail'}">Dagger Error: ${daggerErr.toFixed(6)} (${report.dagger.toFixed(2)})</div>
+                    <div class="proof-metric ${psdMin >= -ph.tol ? 'proof-pass' : 'proof-fail'}">PSD Min RQ: ${psdMin.toFixed(6)} (${report.psd.toFixed(2)})</div>
+                    <div class="proof-metric ${idempErr <= ph.tol ? 'proof-pass' : 'proof-fail'}">Idempotence Error: ${idempErr.toFixed(6)} (${report.idemp.toFixed(2)})</div>
+                    <div class="proof-metric ${coalgErr <= ph.tol ? 'proof-pass' : 'proof-fail'}">Coalgebra Error: ${coalgErr.toFixed(6)} (${report.coalg.toFixed(2)})</div>
+                    <div class="proof-metric ${gwLip.diff <= ph.tol ? 'proof-pass' : 'proof-fail'}">GW-Lipschitz Diff: ${gwLip.diff.toFixed(6)} (${report.gw_lip.toFixed(2)})</div>
+                    <div class="proof-metric ${lyapErr <= ph.tol ? 'proof-pass' : 'proof-fail'}">Lyapunov Error: ${lyapErr.toFixed(6)} (${report.lyap.toFixed(2)})</div>
                 `;
                 lastW = out.W.map(row => row.slice());
                 lastC = out.consciousness;
@@ -905,7 +1007,7 @@
         }
 
         function updateVisualization(data, loss) {
-            const { noeons, Q, W, syntrices, consciousness, gammaPower, stability, action, imagination } = data;
+            const { noeons, Q, W, syntrices, consciousness, gammaPower, stability, action, imagination, imaginationLoss } = data;
             document.getElementById('status').textContent = 'Online & Learning';
             document.getElementById('status').className = 'status-running';
             document.getElementById('step').textContent = simulationState.step.toLocaleString();
@@ -915,6 +1017,7 @@
             document.getElementById('player-score').innerText = scores.player;
             document.getElementById('ai-score').innerText = scores.ai;
             document.getElementById('imagination-depth').innerText = model.imaginationDepth;
+            document.getElementById('imagination-loss').innerText = imaginationLoss.toFixed(2);
             const gameTime = Math.floor((Date.now() - gameStartTime) / 1000);
             document.getElementById('game-length').innerText = `${gameTime}s`;
             const actionEl = document.getElementById('action');
@@ -1037,6 +1140,7 @@
             document.getElementById('imagination-paths').innerHTML = '';
             document.getElementById('proof-metrics').innerHTML = '';
             model = new ESCAF.SENCSOMPlayer(6, 12, 12, 8);
+            model.ast.reset();
             lastW = null;
             lastC = 0;
         });
