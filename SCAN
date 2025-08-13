@@ -1,0 +1,1077 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>SENCSOM - Conscious Pong Agent with Imagination</title>
+    <style>
+        body { 
+            margin: 0; 
+            background: linear-gradient(135deg, #0a0a15, #1a1a2e); 
+            color: #e0e0e0; 
+            font-family: 'SF Mono', 'Courier New', monospace; 
+            overflow: hidden; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            height: 100vh; 
+        }
+        #main-container { 
+            display: flex; 
+            gap: 20px; 
+            align-items: flex-start; 
+            max-width: 1400px; 
+            width: 100%; 
+            padding: 20px; 
+        }
+        #visualization-container { 
+            position: relative; 
+            width: 600px; 
+            height: 600px; 
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 12px;
+            border: 2px solid #4af;
+            box-shadow: 0 0 30px rgba(68, 170, 255, 0.3);
+        }
+        #game-container { 
+            border: 2px solid #4af; 
+            border-radius: 8px;
+        }
+        .panel { 
+            padding: 15px; 
+            background: rgba(10, 10, 30, 0.9); 
+            border-radius: 12px; 
+            border: 1px solid #2a2a4a; 
+            font-size: 11px; 
+            line-height: 1.5;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+        #info { width: 300px; }
+        #game-info { width: 240px; text-align: center; }
+        button { 
+            background: linear-gradient(135deg, #2a2a4a, #3a3a5a); 
+            color: #e0e0e0; 
+            border: 1px solid #555; 
+            padding: 12px 18px; 
+            cursor: pointer; 
+            border-radius: 6px; 
+            font-family: inherit; 
+            transition: all 0.3s; 
+            margin-top: 10px;
+            font-weight: bold;
+        }
+        button:hover { 
+            background: linear-gradient(135deg, #3a3a5a, #4a4a6a); 
+            box-shadow: 0 2px 10px rgba(68, 170, 255, 0.3);
+        }
+        .status-running { color: #22dd44; text-shadow: 0 0 5px #22dd44; }
+        .status-stopped { color: #ff5555; text-shadow: 0 0 5px #ff5555; }
+        h3 { 
+            margin-top: 0; 
+            color: #4af; 
+            border-bottom: 2px solid #4af; 
+            padding-bottom: 8px; 
+            text-shadow: 0 0 10px rgba(68, 170, 255, 0.5);
+        }
+        .metric { 
+            display: flex; 
+            justify-content: space-between; 
+            margin-bottom: 6px; 
+            padding: 3px 0;
+        }
+        .metric-label { color: #aaa; }
+        .metric-value { 
+            font-weight: bold; 
+            text-shadow: 0 0 3px currentColor;
+        }
+        #thought-log { 
+            height: 100px; 
+            overflow-y: auto; 
+            background: rgba(0, 0, 0, 0.5); 
+            padding: 8px; 
+            border-radius: 6px; 
+            margin-top: 10px; 
+            font-size: 9px;
+            border: 1px solid #333;
+        }
+        .thought { 
+            margin-bottom: 3px; 
+            opacity: 0.9; 
+            padding: 2px;
+            border-left: 2px solid currentColor;
+            padding-left: 6px;
+        }
+        .action-up { color: #22dd44; }
+        .action-down { color: #ff5555; }
+        .action-idle { color: #ffaa44; }
+        .imagination-section {
+            background: rgba(20, 20, 40, 0.8);
+            border-radius: 8px;
+            padding: 10px;
+            margin-top: 10px;
+            border: 1px solid #4a4a6a;
+        }
+        .imagination-path {
+            font-size: 9px;
+            margin: 3px 0;
+            padding: 2px 5px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 3px;
+            border-left: 3px solid;
+        }
+        .path-good { border-left-color: #22dd44; }
+        .path-bad { border-left-color: #ff5555; }
+        .path-neutral { border-left-color: #ffaa44; }
+        .proof-section {
+            background: rgba(20, 20, 40, 0.8);
+            border-radius: 8px;
+            padding: 10px;
+            margin-top: 10px;
+            border: 1px solid #4a4a6a;
+        }
+        .proof-metric {
+            font-size: 9px;
+            margin: 3px 0;
+            padding: 2px 5px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 3px;
+            border-left: 3px solid;
+        }
+        .proof-pass { border-left-color: #22dd44; }
+        .proof-fail { border-left-color: #ff5555; }
+    </style>
+</head>
+<body>
+    <div id="main-container">
+        <div id="info" class="panel">
+            <h3>🧠 SENCSOM Consciousness Core</h3>
+            <div class="metric"><span class="metric-label">Status:</span><span id="status" class="status-stopped">Offline</span></div>
+            <div class="metric"><span class="metric-label">Training Step:</span><span id="step" class="metric-value">0</span></div>
+            <div class="metric"><span class="metric-label">Consciousness Level:</span><span id="consensus" class="metric-value">0.000</span></div>
+            <div class="metric"><span class="metric-label">Gamma Synchrony:</span><span id="gamma" class="metric-value">0.000</span></div>
+            <div class="metric"><span class="metric-label">Topology Loops:</span><span id="loops" class="metric-value">0</span></div>
+            <div class="metric"><span class="metric-label">Current Action:</span><span id="action" class="metric-value action-idle">IDLE</span></div>
+            <div class="metric"><span class="metric-label">Performance:</span><span id="performance" class="metric-value">0.0%</span></div>
+            <div class="metric"><span class="metric-label">Imagination Depth:</span><span id="imagination-depth" class="metric-value">3</span></div>
+            <h3>🔮 Internal Observer Stream</h3>
+            <div id="thought-log"></div>
+            <div class="imagination-section">
+                <h3 style="font-size: 12px; margin: 0 0 8px 0; border: none; padding: 0;">Future Simulation Paths</h3>
+                <div id="imagination-paths"></div>
+            </div>
+            <div class="proof-section">
+                <h3 style="font-size: 12px; margin: 0 0 8px 0; border: none; padding: 0;">Proof Harness Metrics</h3>
+                <div id="proof-metrics"></div>
+            </div>
+        </div>
+        <div id="visualization-container"></div>
+        <div id="game-info" class="panel">
+            <h3>🏓 PONG Environment</h3>
+            <canvas id="gameCanvas" width="400" height="600" style="background: linear-gradient(180deg, #000011, #000033); border: 1px solid #333; border-radius: 6px;"></canvas>
+            <div class="metric" style="margin-top: 15px;">
+                <span class="metric-label">Human Score:</span><span id="player-score" class="metric-value">0</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">SENCSOM Score:</span><span id="ai-score" class="metric-value">0</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">Game Length:</span><span id="game-length" class="metric-value">0s</span>
+            </div>
+            <button id="startStopBtn">🚀 Awaken Consciousness</button>
+            <button id="resetBtn">🔄 Reset Reality</button>
+            <button id="imaginationBtn">🔮 Toggle Imagination</button>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // --- ESCAF core (drop-in replacement) ---
+        // Improved Clifford tensor, qualia kernel (PSD), log-sinkhorn, AST, WorldModel, Consciousness, ProofHarness, SENCSOMPlayer
+        (() => {
+            // tiny numerical helpers
+            const eps = 1e-9;
+            function zeros(n,m){ const A = new Array(n); for(let i=0;i<n;i++) A[i]=new Array(m).fill(0); return A; }
+            function vecZeros(n){ return new Array(n).fill(0); }
+            function dot(a,b){ let s=0; for(let i=0;i<a.length;i++) s+=a[i]*b[i]; return s; }
+            function add(a,b){ return a.map((v,i)=>v+b[i]); }
+            function sub(a,b){ return a.map((v,i)=>v-b[i]); }
+            function mulScalar(a,s){ return a.map(v=>v*s); }
+            function normL2(a){ return Math.sqrt(Math.max(eps, dot(a,a))); }
+            function tanhVec(a){ return a.map(Math.tanh); }
+            function reluVec(a){ return a.map(v=>Math.max(0,v)); }
+            function softmax(arr){
+                const max = Math.max(...arr);
+                const exps = arr.map(x=>Math.exp(Math.max(-50, Math.min(50, x-max))));
+                const sum = exps.reduce((s,v)=>s+v,0) + eps;
+                return exps.map(x=>x/sum);
+            }
+            function clamp(x, lo, hi){ return Math.max(lo, Math.min(hi, x)); }
+
+            // ----------------- Clifford tensor for Cl(3,0) -----------------
+            const CLIFF = (function buildClifford(){
+                const T = [];
+                for(let a=0;a<8;a++){
+                    T[a] = [];
+                    for(let b=0;b<8;b++){
+                        T[a][b] = new Array(8).fill(0);
+                    }
+                }
+                const s=0,e1=1,e2=2,e3=3,e12=4,e23=5,e31=6,I=7;
+                for(let i=0;i<8;i++){ T[s][i][i]=1; T[i][s][i]=1; }
+                T[e1][e1][s]=1; T[e2][e2][s]=1; T[e3][e3][s]=1;
+                T[e1][e2][e12]= 1; T[e2][e1][e12] = -1;
+                T[e2][e3][e23]= 1; T[e3][e2][e23] = -1;
+                T[e3][e1][e31]= 1; T[e1][e3][e31] = -1;
+                T[e12][e12][s] = -1; T[e23][e23][s] = -1; T[e31][e31][s] = -1;
+                T[e12][e3][I] = 1; T[e3][e12][I] = -1;
+                T[e23][e1][I] = 1; T[e1][e23][I] = -1;
+                T[e31][e2][I] = 1; T[e2][e31][I] = -1;
+                T[I][I][s] = -1;
+                T[I][e1][e23] = 1; T[e1][I][e23] = 1;
+                T[I][e2][e31] = 1; T[e2][I][e31] = 1;
+                T[I][e3][e12] = 1; T[e3][I][e12] = 1;
+                return T;
+            })();
+
+            function geoProduct(q, r){
+                const out = new Array(8).fill(0);
+                for(let a=0;a<8;a++){
+                    const qa = q[a];
+                    if(qa===0) continue;
+                    const Ta = CLIFF[a];
+                    for(let b=0;b<8;b++){
+                        const rb = r[b];
+                        if(rb===0) continue;
+                        const row = Ta[b];
+                        for(let c=0;c<8;c++){
+                            out[c] += qa * rb * row[c];
+                        }
+                    }
+                }
+                return out;
+            }
+
+            const DAG_SIGNS = [1,-1,-1,-1,-1,-1,-1,1];
+            function dagger(q){ return q.map((v,i)=>v*DAG_SIGNS[i]); }
+
+            // ----------------- Qualia binding kernel (PSD) -----------------
+            function qualiaBindMatrix(Q, alpha=1.0, beta=0.3){
+                const N = Q.length;
+                const B = zeros(N,N);
+                const norms = Q.map(v => dot(v,v));
+                for(let i=0;i<N;i++){
+                    for(let j=0;j<N;j++){
+                        const inner = Math.abs(dot(Q[i], Q[j]));
+                        const d2 = norms[i] - 2*dot(Q[i], Q[j]) + norms[j];
+                        B[i][j] = Math.exp(alpha * inner - beta * d2);
+                    }
+                }
+                for(let i=0;i<N;i++) for(let j=i+1;j<N;j++){ const m=(B[i][j]+B[j][i])*0.5; B[i][j]=B[j][i]=m; }
+                return B;
+            }
+
+            // ----------------- log-domain Sinkhorn (stable) -----------------
+            function logSumExp(arr){
+                const m = Math.max(...arr);
+                let s = 0;
+                for(let i=0;i<arr.length;i++) s += Math.exp(arr[i]-m);
+                return m + Math.log(s + eps);
+            }
+            function logSinkhornFromScores(scores, n_iters=20){
+                const N = scores.length;
+                const logp = zeros(N,N);
+                for(let i=0;i<N;i++) for(let j=0;j<N;j++) logp[i][j] = Math.log(Math.max(scores[i][j], 1e-12));
+                for(let it=0; it<n_iters; it++){
+                    for(let i=0;i<N;i++){
+                        const r = logSumExp(logp[i]);
+                        for(let j=0;j<N;j++) logp[i][j] -= r;
+                    }
+                    for(let j=0;j<N;j++){
+                        const col = new Array(N);
+                        for(let i=0;i<N;i++) col[i] = logp[i][j];
+                        const c = logSumExp(col);
+                        for(let i=0;i<N;i++) logp[i][j] -= c;
+                    }
+                }
+                const P = zeros(N,N);
+                for(let i=0;i<N;i++) for(let j=0;j<N;j++) P[i][j] = Math.exp(logp[i][j]);
+                return P;
+            }
+
+            // ----------------- Small RNN-esque AST Filter -----------------
+            class ASTFilter {
+                constructor(nodeDim=12, hidden=32) {
+                    this.nodeDim = nodeDim;
+                    this.hidden = hidden;
+                    this.Wxh = randomMatrix(hidden, nodeDim);
+                    this.Whh = randomMatrix(hidden, hidden);
+                    this.bh  = vecZeros(hidden);
+                    this.projW = randomMatrix(1, nodeDim);
+                    this.projB = [0];
+                    this.state = vecZeros(hidden);
+                }
+                step(Nodes){
+                    const mean = vecZeros(this.nodeDim);
+                    for(const v of Nodes) for(let i=0;i<this.nodeDim;i++) mean[i]+=v[i];
+                    for(let i=0;i<this.nodeDim;i++) mean[i]/=Math.max(1, Nodes.length);
+                    const Wx = matVecMul(this.Wxh, mean);
+                    const Wh = matVecMul(this.Whh, this.state);
+                    const next = vecZeros(this.hidden);
+                    for(let i=0;i<this.hidden;i++) next[i] = Math.tanh(Wx[i] + Wh[i] + this.bh[i]);
+                    this.state = next;
+                    const scores = Nodes.map(v => matVecDot(this.projW, v) + this.projB[0]);
+                    const a = softmax(scores);
+                    return {s: next, a, scores};
+                }
+                update(grad, lr=1e-3, Nodes=[]){
+                    if(Nodes.length===0) return;
+                    const mean = vecZeros(this.nodeDim);
+                    for(const v of Nodes) for(let i=0;i<this.nodeDim;i++) mean[i]+=v[i];
+                    for(let i=0;i<this.nodeDim;i++) mean[i]/=Math.max(1, Nodes.length);
+                    for(let j=0;j<this.nodeDim;j++) this.projW[0][j] -= lr * grad * mean[j];
+                    this.projB[0] -= lr * grad;
+                }
+            }
+
+            function randomMatrix(rows,cols, scale=0.1){
+                const M = new Array(rows);
+                for(let i=0;i<rows;i++){ M[i]=new Array(cols); for(let j=0;j<cols;j++) M[i][j]=(Math.random()*2-1)*scale; }
+                return M;
+            }
+            function matVecMul(M, v){
+                const out = new Array(M.length).fill(0);
+                for(let i=0;i<M.length;i++){
+                    let s=0; for(let j=0;j<v.length;j++) s+=M[i][j]*v[j];
+                    out[i]=s;
+                }
+                return out;
+            }
+            function matVecDot(M, v){
+                let s=0; for(let j=0;j<v.length;j++) s+=M[0][j]*v[j]; return s;
+            }
+
+            // ----------------- Tiny WorldModel MLP -----------------
+            class WorldModel {
+                constructor(stateDim=6, actionDim=3, qDim=8, hidden=64){
+                    this.stateDim=stateDim; this.actionDim=actionDim; this.qDim=qDim;
+                    this.qProjW = randomMatrix(qDim, stateDim, 0.2);
+                    this.qProjB = vecZeros(qDim);
+                    this.transW1 = randomMatrix(hidden, stateDim + actionDim + qDim, 0.1);
+                    this.transB1 = vecZeros(hidden);
+                    this.transW2 = randomMatrix(stateDim, hidden, 0.1);
+                    this.transB2 = vecZeros(stateDim);
+                    this.rewardW1 = randomMatrix(hidden, stateDim + qDim, 0.1);
+                    this.rewardB1 = vecZeros(hidden);
+                    this.rewardW2 = randomMatrix(1, hidden, 0.1);
+                    this.rewardB2 = [0];
+                    this.memory = [];
+                }
+                qProj(state){
+                    const q = matVecMul(this.qProjW, state);
+                    for(let i=0;i<q.length;i++) q[i] = Math.tanh(q[i] + this.qProjB[i]);
+                    return q;
+                }
+                predict(state, action, q){
+                    const inp = state.concat(action).concat(q);
+                    const h = matVecMul(this.transW1, inp);
+                    for(let i=0;i<h.length;i++) h[i] = Math.tanh(h[i] + this.transB1[i]);
+                    const next = matVecMul(this.transW2, h);
+                    for(let i=0;i<next.length;i++) next[i] = next[i] + this.transB2[i];
+                    const nextQ = this.qProj(next);
+                    const r_h = matVecMul(this.rewardW1, next.concat(nextQ));
+                    for(let i=0;i<r_h.length;i++) r_h[i] = Math.tanh(r_h[i] + this.rewardB1[i]);
+                    const r = matVecMul(this.rewardW2, r_h)[0] + this.rewardB2[0];
+                    return { nextState: next, nextQ, reward: r };
+                }
+                storeTransition(s,a,nextS,r,Q,nextQ){
+                    this.memory.push({s,a,nextS,r,Q,nextQ});
+                    if(this.memory.length>1000) this.memory.shift();
+                }
+                trainFromMemory(batchSize=16){
+                    if(this.memory.length<batchSize) return;
+                    for(let k=0;k<Math.min(5, Math.floor(this.memory.length/batchSize));k++){
+                        const idx = Math.floor(Math.random()*this.memory.length);
+                        const tr = this.memory[idx];
+                        const pred = this.predict(tr.s,tr.a,tr.Q);
+                        const errS = tr.nextS.map((v,i)=>v - pred.nextState[i]);
+                        for(let i=0;i<this.transW2.length;i++){
+                            for(let j=0;j<this.transW2[i].length;j++){
+                                this.transW2[i][j] += 1e-4 * errS[i] * 0.1;
+                            }
+                            this.transB2[i] += 1e-4 * errS[i];
+                        }
+                    }
+                }
+            }
+
+            // ----------------- Consciousness functional (browser-friendly approx) -----------------
+            function computeConsciousness(W, X, Q, aSchema, aMeasured, params={}){
+                const lambda = params.lambda || 0.1;
+                const N = W.length;
+                const deg = new Array(N).fill(0);
+                for(let i=0;i<N;i++) for(let j=0;j<N;j++) deg[i]+=W[i][j];
+                let S=0;
+                for(let i=0;i<N;i++) S += Math.log(1 + lambda / (deg[i]+1e-6));
+                S = S / Math.max(1,N);
+                const H = X[0].length;
+                const Xpred = new Array(H).fill(0);
+                for(let i=0;i<N;i++) for(let k=0;k<H;k++) Xpred[k]+=X[i][k];
+                for(let k=0;k<H;k++) Xpred[k] /= N;
+                const B = qualiaBindMatrix(Q);
+                const Xint = new Array(N).fill(0).map(()=>new Array(H).fill(0));
+                for(let i=0;i<N;i++){
+                    for(let j=0;j<N;j++){
+                        const w = W[i][j] * B[i][j];
+                        for(let k=0;k<H;k++) Xint[i][k] += w * X[j][k];
+                    }
+                }
+                let mse=0;
+                for(let i=0;i<N;i++) for(let k=0;k<H;k++){
+                    const d = Xpred[k] - Xint[i][k];
+                    mse += d*d;
+                }
+                mse = mse / (N*H + eps);
+                const Icoh = -mse;
+                let sumWB=0, sumW=0;
+                for(let i=0;i<N;i++) for(let j=0;j<N;j++){ sumWB += W[i][j]*B[i][j]; sumW += W[i][j]; }
+                const Qbind = sumWB / (sumW + 1e-9);
+                const p = aSchema.map(x=>Math.max(x,1e-9));
+                const q = aMeasured.map(x=>Math.max(x,1e-9));
+                let AST=0;
+                for(let i=0;i<N;i++) AST -= q[i] * (Math.log(q[i]) - Math.log(p[i]));
+                const Comp = 0.001 * (N + W.flat().filter(x=>x>1e-8).length);
+                const raw = S + 1.0*Icoh + 0.3*Qbind + 0.5*AST - 0.01*Comp;
+                const C = 1/(1+Math.exp(-raw));
+                return { C, parts: {S, I: Icoh, Q: Qbind, AST} };
+            }
+
+            // ----------------- Proof Harness (approximations) -----------------
+            class ProofHarness {
+                constructor(tol=1e-3){
+                    this.tol = tol;
+                    this.metrics = { dagger:[], psd:[], idemp:[], coalg:[], gw_lip:[], lyap:[] };
+                }
+                checkDagger(Q){
+                    const N = Q.length;
+                    const m = Math.max(1, Math.floor(N/4));
+                    let maxErr=0;
+                    for(let t=0;t<m;t++){
+                        const i = Math.floor(Math.random()*N);
+                        const j = Math.floor(Math.random()*N);
+                        const lhs = geoProduct(dagger(Q[i]), dagger(Q[j]));
+                        const rhs = dagger(geoProduct(Q[j], Q[i]));
+                        let e=0; for(let k=0;k<8;k++) e = Math.max(e, Math.abs(lhs[k]-rhs[k]));
+                        maxErr = Math.max(maxErr, e);
+                    }
+                    this.metrics.dagger.push(maxErr <= this.tol);
+                    return maxErr;
+                }
+                checkPSD(B){
+                    const N = B.length;
+                    let minRQ = Infinity;
+                    for(let trial=0; trial<5; trial++){
+                        let v = new Array(N).fill(0).map(()=>Math.random()-0.5);
+                        let nv = Math.sqrt(v.reduce((s,x)=>s+x*x,0))+eps;
+                        v = v.map(x=>x/nv);
+                        const Bv = new Array(N).fill(0);
+                        for(let i=0;i<N;i++) for(let j=0;j<N;j++) Bv[i]+=B[i][j]*v[j];
+                        const rq = v.reduce((s,x,i)=>s + x*Bv[i], 0);
+                        minRQ = Math.min(minRQ, rq);
+                    }
+                    this.metrics.psd.push(minRQ >= -this.tol);
+                    return minRQ;
+                }
+                checkIdempotence(W1, W2){
+                    const N = W1.length;
+                    let s=0;
+                    for(let i=0;i<N;i++) for(let j=0;j<N;j++){ const d=W1[i][j]-W2[i][j]; s+=d*d; }
+                    const fro = Math.sqrt(s);
+                    this.metrics.idemp.push(fro <= this.tol);
+                    return fro;
+                }
+                checkCoalgebra(a, a_hat){
+                    let s=0; for(let i=0;i<a.length;i++) s+=(a[i]-a_hat[i])**2;
+                    const d = Math.sqrt(s);
+                    this.metrics.coalg.push(d <= this.tol);
+                    return d;
+                }
+                checkGWLip(C1, C2, W1, W2, L=1.0){
+                    const N=W1.length; let s=0; for(let i=0;i<N;i++) for(let j=0;j<N;j++){ const d=W1[i][j]-W2[i][j]; s+=d*d; }
+                    const fw = Math.sqrt(s);
+                    const diff = Math.abs(C1 - C2) - L * fw;
+                    this.metrics.gw_lip.push(diff <= this.tol);
+                    return { diff, fw };
+                }
+                checkLyapunov(Vb, Va){
+                    const d = Va - Vb;
+                    this.metrics.lyap.push(d <= this.tol);
+                    return d;
+                }
+                report(){ const out={}; for(const k in this.metrics) { const arr=this.metrics[k]; const pass=arr.filter(x=>x).length/Math.max(1,arr.length); out[k]=pass; } return out; }
+            }
+
+            // ----------------- SENCSOM Player (JS) updated -----------------
+            class SENCSOMPlayer {
+                constructor(featureDim=6, numNoeons=12, noeonDim=12, q_dim=8){
+                    this.featureDim = featureDim;
+                    this.numNoeons = numNoeons;
+                    this.noeonDim = noeonDim;
+                    this.q_dim = q_dim;
+                    this.tokenW = randomMatrix(numNoeons, featureDim, 0.2);
+                    this.tokenB = new Array(numNoeons).fill(0);
+                    this.syncolator = { detect: (noeons)=> { return [] } };
+                    this.consensus = { forward: (n,s)=>0.0, getConsciousnessStability: ()=>0.0 };
+                    this.ast = new ASTFilter(noeonDim, Math.max(32, noeonDim*2));
+                    this.worldModel = new WorldModel(featureDim, 3, q_dim);
+                    this.poset = { geometricProduct: (q1,q2)=>geoProduct(q1,q2).slice(0,q_dim), qualiaBindMatrix };
+                    this.actorW = randomMatrix(3, featureDim + q_dim + 3, 0.1);
+                    this.actorB = [0,0,0];
+                    this.criticW = randomMatrix(1, featureDim + q_dim + 3, 0.1);
+                    this.criticB = [0];
+                    this.imaginationEnabled = true;
+                    this.imaginationDepth = 3;
+                    this.actionHistory=[]; this.stateHistory=[]; this.qualiaHistory=[];
+                    this.proof = new ProofHarness(1e-2);
+                }
+                tokenizer_forward(x){
+                    const noeons = [];
+                    for(let i=0;i<this.numNoeons;i++){
+                        const base = matVecDot([this.tokenW[i]], x) + this.tokenB[i];
+                        const v = new Array(this.noeonDim).fill(0).map((_,k)=>Math.tanh(base * (0.5 + 0.1*k)));
+                        noeons.push(v);
+                    }
+                    return noeons;
+                }
+                imagine(currentState, Q, depth=3){
+                    const paths = [];
+                    const actions = [[1,0,0],[0,1,0],[0,0,1]];
+                    for(let ai=0;ai<actions.length;ai++){
+                        let state = currentState.slice();
+                        let qual = Q.slice();
+                        let total = 0;
+                        const path = [`Action:${ai}`];
+                        for(let step=0; step<depth; step++){
+                            const p = this.worldModel.predict(state, actions[ai], qual);
+                            state = p.nextState.slice();
+                            qual  = p.nextQ.slice();
+                            total += p.reward * Math.pow(0.9, step);
+                            path.push(`s${step+1}: r=${p.reward.toFixed(2)}`);
+                        }
+                        paths.push({ action: ai, value: total, path, actionName: ['UP','DOWN','IDLE'][ai] });
+                    }
+                    paths.sort((a,b)=>b.value - a.value);
+                    return paths;
+                }
+                forward(x){
+                    const noeons = this.tokenizer_forward(x);
+                    const Q = noeons.map(n=>{ const g = geoProduct(n,n); return g.slice(0,this.q_dim); });
+                    const B = qualiaBindMatrix(Q);
+                    const W = logSinkhornFromScores(B, 10);
+                    const astOut = this.ast.step(noeons);
+                    const a = astOut.a;
+                    const atilde = W.map(row => row.reduce((s,v)=>s+v,0));
+                    const X = noeons.map(n=> n.slice(0, Math.min(n.length, 12)) );
+                    const consObj = computeConsciousness(W, X, Q, a, atilde);
+                    const consciousness = consObj.C;
+                    const qpool = vecZeros(this.q_dim);
+                    for(let i=0;i<Q.length;i++) for(let j=0;j<this.q_dim;j++) qpool[j]+=Q[i][j];
+                    for(let j=0;j<this.q_dim;j++) qpool[j]/=Q.length;
+                    const gammaPower = Math.min(1, Math.sqrt(Q.reduce((s,q)=>s + dot(q,q),0) / (Q.length*8)));
+                    const stability = 1.0 - Math.abs(astOut.s.reduce((s,v)=>s+Math.abs(v),0)/(astOut.s.length+eps));
+                    const enhanced = x.concat(qpool.slice(0, Math.max(0, Math.min(3,qpool.length)))).concat([consciousness, gammaPower, stability]);
+                    const logits = [ matVecDot([this.actorW[0]], enhanced)+this.actorB[0],
+                                    matVecDot([this.actorW[1]], enhanced)+this.actorB[1],
+                                    matVecDot([this.actorW[2]], enhanced)+this.actorB[2] ];
+                    let action, actionProbs;
+                    if(this.imaginationEnabled && consciousness > 0.35){
+                        const dreams = this.imagine(x, qpool, this.imaginationDepth);
+                        action = dreams[0].action;
+                        actionProbs = [0.1,0.1,0.1]; actionProbs[action]=0.8;
+                        this.lastImagination = dreams;
+                    } else {
+                        actionProbs = softmax(logits);
+                        action = actionProbs.indexOf(Math.max(...actionProbs));
+                        this.lastImagination = [];
+                    }
+                    const value = matVecDot(this.criticW, enhanced) + this.criticB[0];
+                    return {
+                        action, actionProbs, value,
+                        noeons, Q, W, a, atilde,
+                        syntrices: this.syncolator.detect(noeons),
+                        consciousness, gammaPower, stability, drives: [], imagination: this.lastImagination
+                    };
+                }
+                train(x, reward, nextX=null){
+                    const out = this.forward(x);
+                    if(nextX && this.actionHistory.length>0){
+                        const lastAction = vecZeros(3); lastAction[this.actionHistory[this.actionHistory.length-1]]=1;
+                        const Q = out.Q[0];
+                        const nextNoeons = this.tokenizer_forward(nextX);
+                        const nextQ = geoProduct(nextNoeons[0], nextNoeons[0]).slice(0,this.q_dim);
+                        this.worldModel.storeTransition(this.stateHistory[this.stateHistory.length-1], lastAction, nextX, reward, Q, nextQ);
+                    }
+                    const advantage = reward - out.value;
+                    this.actorB = this.actorB.map((b, i)=> b + 1e-3 * (i===out.action ? advantage : -0.01*advantage));
+                    this.criticB[0] += 1e-3 * (advantage);
+                    const astError = out.a.reduce((s,v,i)=>s + Math.pow(v - out.atilde[i],2), 0);
+                    this.ast.update(astError, 1e-3, out.noeons);
+                    if(this.worldModel.memory.length > 30 && Math.random() < 0.15) this.worldModel.trainFromMemory();
+                    this.actionHistory.push(out.action);
+                    this.stateHistory.push(x.slice());
+                    this.qualiaHistory.push(out.Q[0]);
+                    if(this.actionHistory.length > 200){ this.actionHistory.shift(); this.stateHistory.shift(); this.qualiaHistory.shift(); }
+                    return Math.abs(advantage) + astError;
+                }
+            }
+
+            window.ESCAF = {
+                geoProduct, dagger, qualiaBindMatrix, logSinkhornFromScores,
+                ASTFilter, WorldModel, computeConsciousness, ProofHarness, SENCSOMPlayer
+            };
+
+            console.info("ESCAF core loaded: geoProduct, qualiaBindMatrix, ASTFilter, WorldModel, SENCSOMPlayer available on window.ESCAF");
+        })();
+
+        // Game and Visualization Code
+        const gameCanvas = document.getElementById('gameCanvas');
+        const gameCtx = gameCanvas.getContext('2d');
+        const W = gameCanvas.width;
+        const H = gameCanvas.height;
+
+        const paddle = { x: W - 25, y: H / 2 - 50, w: 15, h: 100, vy: 0, trail: [] };
+        const ai = { x: 10, y: H / 2 - 50, w: 15, h: 100, vy: 0, trail: [] };
+        const ball = { x: W / 2, y: H / 2, r: 10, vx: 5, vy: 4, trail: [] };
+        let scores = { player: 0, ai: 0 };
+        let gameStartTime = Date.now();
+        let gameHistory = [];
+
+        function resetBall() {
+            ball.x = W / 2;
+            ball.y = H / 2 + (Math.random() - 0.5) * 200;
+            const speed = 4 + Math.random() * 2;
+            const angle = (Math.random() - 0.5) * Math.PI * 0.5;
+            ball.vx = (Math.random() > 0.5 ? 1 : -1) * speed * Math.cos(angle);
+            ball.vy = speed * Math.sin(angle);
+            ball.trail = [];
+        }
+
+        function updateGame() {
+            paddle.y += paddle.vy;
+            ai.y += ai.vy;
+            paddle.y = Math.max(0, Math.min(H - paddle.h, paddle.y));
+            ai.y = Math.max(0, Math.min(H - ai.h, ai.y));
+            paddle.trail.push({x: paddle.x + paddle.w/2, y: paddle.y + paddle.h/2});
+            ai.trail.push({x: ai.x + ai.w/2, y: ai.y + ai.h/2});
+            if (paddle.trail.length > 20) paddle.trail.shift();
+            if (ai.trail.length > 20) ai.trail.shift();
+            ball.x += ball.vx;
+            ball.y += ball.vy;
+            ball.trail.push({x: ball.x, y: ball.y});
+            if (ball.trail.length > 30) ball.trail.shift();
+            if (ball.y - ball.r < 0 || ball.y + ball.r > H) {
+                ball.vy = -ball.vy * (0.95 + Math.random() * 0.1);
+                ball.y = Math.max(ball.r, Math.min(H - ball.r, ball.y));
+            }
+            if (ball.vx > 0 && ball.x + ball.r > paddle.x && ball.x - ball.r < paddle.x + paddle.w && 
+                ball.y > paddle.y && ball.y < paddle.y + paddle.h) {
+                ball.vx = -Math.abs(ball.vx) * 1.05;
+                const hitPos = (ball.y - paddle.y - paddle.h/2) / (paddle.h/2);
+                ball.vy += hitPos * 3;
+                ball.x = paddle.x - ball.r;
+            }
+            if (ball.vx < 0 && ball.x - ball.r < ai.x + ai.w && ball.x + ball.r > ai.x && 
+                ball.y > ai.y && ball.y < ai.y + ai.h) {
+                ball.vx = Math.abs(ball.vx) * 1.05;
+                const hitPos = (ball.y - ai.y - ai.h/2) / (ai.h/2);
+                ball.vy += hitPos * 3;
+                ball.x = ai.x + ai.w + ball.r;
+            }
+            const maxSpeed = 12;
+            if (Math.abs(ball.vx) > maxSpeed) ball.vx = Math.sign(ball.vx) * maxSpeed;
+            if (Math.abs(ball.vy) > maxSpeed) ball.vy = Math.sign(ball.vy) * maxSpeed;
+            if (ball.x - ball.r < 0) {
+                scores.player++;
+                gameHistory.push({reward: -2, event: 'ai_missed', timestamp: Date.now()});
+                resetBall();
+            }
+            if (ball.x + ball.r > W) {
+                scores.ai++;
+                gameHistory.push({reward: 2, event: 'ai_scored', timestamp: Date.now()});
+                resetBall();
+            }
+        }
+
+        function drawGame() {
+            const gradient = gameCtx.createLinearGradient(0, 0, 0, H);
+            gradient.addColorStop(0, '#000011');
+            gradient.addColorStop(0.5, '#000033');
+            gradient.addColorStop(1, '#000011');
+            gameCtx.fillStyle = gradient;
+            gameCtx.fillRect(0, 0, W, H);
+            drawParticles();
+            gameCtx.strokeStyle = '#336699';
+            gameCtx.lineWidth = 2;
+            gameCtx.shadowBlur = 10;
+            gameCtx.shadowColor = '#336699';
+            gameCtx.setLineDash([10, 10]);
+            gameCtx.beginPath();
+            gameCtx.moveTo(W/2, 0);
+            gameCtx.lineTo(W/2, H);
+            gameCtx.stroke();
+            gameCtx.setLineDash([]);
+            gameCtx.shadowBlur = 0;
+            drawTrail(paddle.trail, '#ffffff', 0.3);
+            drawTrail(ai.trail, '#4af', 0.3);
+            drawTrail(ball.trail, '#ffff88', 0.5);
+            gameCtx.shadowBlur = 15;
+            gameCtx.fillStyle = '#ffffff';
+            gameCtx.shadowColor = '#ffffff';
+            gameCtx.fillRect(paddle.x, paddle.y, paddle.w, paddle.h);
+            gameCtx.fillStyle = '#44aaff';
+            gameCtx.shadowColor = '#44aaff';
+            gameCtx.fillRect(ai.x, ai.y, ai.w, ai.h);
+            gameCtx.fillStyle = '#ffff88';
+            gameCtx.shadowColor = '#ffff88';
+            gameCtx.shadowBlur = 20;
+            gameCtx.beginPath();
+            gameCtx.arc(ball.x, ball.y, ball.r, 0, Math.PI*2);
+            gameCtx.fill();
+            gameCtx.shadowBlur = 0;
+        }
+
+        function drawTrail(trail, color, alpha) {
+            trail.forEach((point, i) => {
+                const opacity = (i / trail.length) * alpha;
+                gameCtx.fillStyle = color.replace(')', `, ${opacity})`).replace('#', 'rgba(').replace(/(.{2})(.{2})(.{2})/, (m, r, g, b) => 
+                    `${parseInt(r, 16)}, ${parseInt(g, 16)}, ${parseInt(b, 16)}`
+                );
+                gameCtx.beginPath();
+                gameCtx.arc(point.x, point.y, 2, 0, Math.PI * 2);
+                gameCtx.fill();
+            });
+        }
+
+        let particles = [];
+        function drawParticles() {
+            if (Math.random() < 0.1) {
+                particles.push({
+                    x: Math.random() * W,
+                    y: Math.random() * H,
+                    vx: (Math.random() - 0.5) * 0.5,
+                    vy: (Math.random() - 0.5) * 0.5,
+                    life: 1.0,
+                    decay: 0.01
+                });
+            }
+            particles = particles.filter(p => {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.life -= p.decay;
+                if (p.life > 0) {
+                    gameCtx.fillStyle = `rgba(68, 170, 255, ${p.life * 0.3})`;
+                    gameCtx.fillRect(p.x, p.y, 1, 1);
+                    return true;
+                }
+                return false;
+            });
+        }
+
+        document.addEventListener('mousemove', e => {
+            let rect = gameCanvas.getBoundingClientRect();
+            const targetY = e.clientY - rect.top - paddle.h / 2;
+            const diff = targetY - paddle.y;
+            paddle.vy = Math.max(-8, Math.min(8, diff * 0.3));
+        });
+
+        function getGameStateFeatures() {
+            const ballToPaddle = Math.abs(ball.y - (ai.y + ai.h/2));
+            const ballSpeed = Math.sqrt(ball.vx * ball.vx + ball.vy * ball.vy);
+            return [
+                ball.x / W,
+                ball.y / H,
+                ball.vx / 15,
+                ball.vy / 15,
+                ai.y / H,
+                ballToPaddle / H
+            ];
+        }
+
+        let model = new ESCAF.SENCSOMPlayer(6, 12, 12, 8);
+        let simulationState = { isRunning: false, step: 0 };
+        let performanceHistory = [];
+        let consciousnessHistory = [];
+        let lastW = null;
+        let lastC = 0;
+
+        const vizContainer = document.getElementById('visualization-container');
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, vizContainer.clientWidth / vizContainer.clientHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(vizContainer.clientWidth, vizContainer.clientHeight);
+        renderer.setClearColor(0x000000, 0.1);
+        vizContainer.appendChild(renderer.domElement);
+        camera.position.set(0, 0, 12);
+        const noeonGroup = new THREE.Group();
+        scene.add(noeonGroup);
+        const syntrixGroup = new THREE.Group();
+        scene.add(syntrixGroup);
+        const imaginationGroup = new THREE.Group();
+        scene.add(imaginationGroup);
+        const consciousnessCore = new THREE.Mesh(
+            new THREE.SphereGeometry(0.5, 32, 32),
+            new THREE.MeshBasicMaterial({ 
+                color: 0xffffff, 
+                transparent: true, 
+                opacity: 0.1, 
+                wireframe: false 
+            })
+        );
+        scene.add(consciousnessCore);
+        const ambientLight = new THREE.AmbientLight(0x404040, 0.4);
+        scene.add(ambientLight);
+
+        function updateProofMetrics(out) {
+            const ph = model.proof;
+            const proofMetrics = document.getElementById('proof-metrics');
+            if (simulationState.step % 100 === 0 && out.Q.length > 0) {
+                const daggerErr = ph.checkDagger(out.Q);
+                const psdMin = ph.checkPSD(ESCAF.qualiaBindMatrix(out.Q));
+                const idempErr = lastW ? ph.checkIdempotence(out.W, lastW) : 0;
+                const coalgErr = ph.checkCoalgebra(out.a, out.atilde);
+                const gwLip = lastW ? ph.checkGWLip(out.consciousness, lastC, out.W, lastW, model.L_theta || 1.0) : { diff: 0, fw: 0 };
+                const report = ph.report();
+                proofMetrics.innerHTML = `
+                    <div class="proof-metric ${daggerErr <= ph.tol ? 'proof-pass' : 'proof-fail'}">Dagger Error: ${daggerErr.toFixed(4)} (${report.dagger.toFixed(2)})</div>
+                    <div class="proof-metric ${psdMin >= -ph.tol ? 'proof-pass' : 'proof-fail'}">PSD Min RQ: ${psdMin.toFixed(4)} (${report.psd.toFixed(2)})</div>
+                    <div class="proof-metric ${idempErr <= ph.tol ? 'proof-pass' : 'proof-fail'}">Idempotence Error: ${idempErr.toFixed(4)} (${report.idemp.toFixed(2)})</div>
+                    <div class="proof-metric ${coalgErr <= ph.tol ? 'proof-pass' : 'proof-fail'}">Coalgebra Error: ${coalgErr.toFixed(4)} (${report.coalg.toFixed(2)})</div>
+                    <div class="proof-metric ${gwLip.diff <= ph.tol ? 'proof-pass' : 'proof-fail'}">GW-Lipschitz Diff: ${gwLip.diff.toFixed(4)} (${report.gw_lip.toFixed(2)})</div>
+                `;
+                lastW = out.W.map(row => row.slice());
+                lastC = out.consciousness;
+            }
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            if (simulationState.isRunning) {
+                const features = getGameStateFeatures();
+                const output = model.forward(features);
+                const actionStrength = 7;
+                if (output.action === 0) {
+                    ai.vy = Math.max(ai.vy - 2, -actionStrength);
+                } else if (output.action === 1) {
+                    ai.vy = Math.min(ai.vy + 2, actionStrength);
+                } else {
+                    ai.vy *= 0.8;
+                }
+                let reward = 0;
+                const ballToAI = Math.abs(ball.y - (ai.y + ai.h/2));
+                if (ballToAI < 50) reward += 0.1;
+                if (ballToAI < 25) reward += 0.1;
+                if (ball.vx < 0) {
+                    const futureY = ball.y + ball.vy * (Math.abs(ball.x - ai.x) / Math.abs(ball.vx));
+                    const anticipationError = Math.abs(futureY - (ai.y + ai.h/2));
+                    if (anticipationError < 30) reward += 0.2;
+                }
+                if (gameHistory.length > 0) {
+                    const lastEvent = gameHistory[gameHistory.length - 1];
+                    if (Date.now() - lastEvent.timestamp < 100) {
+                        reward += lastEvent.reward;
+                        gameHistory = [];
+                    }
+                }
+                const nextFeatures = getGameStateFeatures();
+                const loss = model.train(features, reward, nextFeatures);
+                updateGame();
+                simulationState.step++;
+                consciousnessHistory.push(output.consciousness);
+                if (consciousnessHistory.length > 200) consciousnessHistory.shift();
+                const totalGames = scores.player + scores.ai;
+                const aiWinRate = totalGames > 0 ? (scores.ai / totalGames) * 100 : 0;
+                performanceHistory.push(aiWinRate);
+                if (performanceHistory.length > 100) performanceHistory.shift();
+                updateVisualization(output, loss);
+                updateImaginationDisplay(output.imagination);
+                updateProofMetrics(output);
+            }
+            drawGame();
+            noeonGroup.rotation.y += 0.005;
+            noeonGroup.rotation.x += 0.002;
+            syntrixGroup.rotation.x += 0.003;
+            syntrixGroup.rotation.z += 0.001;
+            imaginationGroup.rotation.y -= 0.004;
+            renderer.render(scene, camera);
+        }
+
+        function updateVisualization(data, loss) {
+            const { noeons, Q, W, syntrices, consciousness, gammaPower, stability, action, imagination } = data;
+            document.getElementById('status').textContent = 'Online & Learning';
+            document.getElementById('status').className = 'status-running';
+            document.getElementById('step').textContent = simulationState.step.toLocaleString();
+            document.getElementById('consensus').innerText = consciousness.toFixed(3);
+            document.getElementById('gamma').innerText = gammaPower.toFixed(4);
+            document.getElementById('loops').innerText = syntrices.length;
+            document.getElementById('player-score').innerText = scores.player;
+            document.getElementById('ai-score').innerText = scores.ai;
+            document.getElementById('imagination-depth').innerText = model.imaginationDepth;
+            const gameTime = Math.floor((Date.now() - gameStartTime) / 1000);
+            document.getElementById('game-length').innerText = `${gameTime}s`;
+            const actionEl = document.getElementById('action');
+            const actionNames = ['UP', 'IDLE', 'DOWN'];
+            const actionClasses = ['action-up', 'action-idle', 'action-down'];
+            actionEl.innerText = actionNames[action] || 'PROCESSING';
+            actionEl.className = `metric-value ${actionClasses[action] || 'action-idle'}`;
+            const totalGames = scores.player + scores.ai;
+            const winRate = totalGames > 0 ? ((scores.ai / totalGames) * 100).toFixed(1) : '0.0';
+            document.getElementById('performance').innerText = `${winRate}%`;
+            const thoughtLog = document.getElementById('thought-log');
+            if (simulationState.step % 45 === 0) {
+                const newThought = document.createElement('div');
+                newThought.className = 'thought';
+                newThought.style.color = consciousness > 0.6 ? '#22dd44' : consciousness > 0.3 ? '#ffaa44' : '#ff5555';
+                const thoughtText = `Step ${simulationState.step.toLocaleString()}: ` +
+                    `C=${consciousness.toFixed(2)} γ=${gammaPower.toFixed(2)} ` +
+                    `S=${stability.toFixed(2)} → ${actionNames[action]} ` +
+                    `${model.imaginationEnabled ? '🔮' : '🧠'}`;
+                newThought.textContent = thoughtText;
+                thoughtLog.insertBefore(newThought, thoughtLog.firstChild);
+                if (thoughtLog.children.length > 12) {
+                    thoughtLog.removeChild(thoughtLog.lastChild);
+                }
+            }
+            while(noeonGroup.children.length) noeonGroup.remove(noeonGroup.children[0]);
+            noeons.forEach((n, i) => {
+                const intensity = Math.sqrt(ESCAF.dot(n, n));
+                const pos = Q[i].slice(0, 3).map(v => v * 4);
+                const geometry = new THREE.SphereGeometry(0.1 + intensity * 0.2, 16, 16);
+                const hue = (i / noeons.length + consciousness) % 1;
+                const material = new THREE.MeshBasicMaterial({ 
+                    color: new THREE.Color().setHSL(hue, 0.8, 0.5 + intensity * 0.3),
+                    transparent: true,
+                    opacity: 0.7 + intensity * 0.3
+                });
+                const sphere = new THREE.Mesh(geometry, material);
+                sphere.position.set(...pos);
+                noeonGroup.add(sphere);
+            });
+            while(syntrixGroup.children.length) syntrixGroup.remove(syntrixGroup.children[0]);
+            syntrices.forEach((loop, idx) => {
+                const points = loop.points.map(p => new THREE.Vector3(...p));
+                if (points.length >= 3) {
+                    points.push(points[0]);
+                    const curve = new THREE.CatmullRomCurve3(points, true);
+                    const tubeGeo = new THREE.TubeGeometry(curve, 32, 0.03, 8, false);
+                    const hue = (loop.persistence + idx * 0.1) % 1;
+                    const tubeMat = new THREE.MeshBasicMaterial({ 
+                        color: new THREE.Color().setHSL(hue, 1.0, 0.6), 
+                        opacity: loop.persistence * 0.9, 
+                        transparent: true 
+                    });
+                    syntrixGroup.add(new THREE.Mesh(tubeGeo, tubeMat));
+                }
+            });
+            consciousnessCore.material.opacity = 0.1 + consciousness * 0.6;
+            consciousnessCore.scale.setScalar(0.5 + consciousness * 1.5 + stability * 0.5);
+            const coreHue = consciousness * 0.7;
+            consciousnessCore.material.color.setHSL(coreHue, 1.0, 0.4 + consciousness * 0.4);
+            const bgIntensity = Math.min(0.3, (consciousness * gammaPower) * 0.2);
+            renderer.setClearColor(new THREE.Color(bgIntensity * 0.5, 0, bgIntensity));
+        }
+
+        function updateImaginationDisplay(imagination) {
+            const pathsContainer = document.getElementById('imagination-paths');
+            pathsContainer.innerHTML = '';
+            imagination.slice(0, 3).forEach((path, i) => {
+                const pathDiv = document.createElement('div');
+                pathDiv.className = `imagination-path ${path.value > 0.5 ? 'path-good' : path.value < -0.5 ? 'path-bad' : 'path-neutral'}`;
+                pathDiv.innerHTML = `<strong>${path.actionName}</strong>: V=${path.value.toFixed(2)}`;
+                pathsContainer.appendChild(pathDiv);
+            });
+            while(imaginationGroup.children.length) imaginationGroup.remove(imaginationGroup.children[0]);
+            imagination.forEach((path, i) => {
+                const geometry = new THREE.ConeGeometry(0.1, 0.3, 8);
+                const color = path.value > 0 ? 0x22dd44 : path.value < 0 ? 0xff5555 : 0xffaa44;
+                const material = new THREE.MeshBasicMaterial({ 
+                    color: color,
+                    transparent: true,
+                    opacity: 0.6
+                });
+                const cone = new THREE.Mesh(geometry, material);
+                const angle = (i / imagination.length) * Math.PI * 2;
+                cone.position.set(Math.cos(angle) * 2, Math.sin(angle) * 2, 0);
+                cone.lookAt(0, 0, 0);
+                imaginationGroup.add(cone);
+            });
+        }
+
+        document.getElementById('startStopBtn').addEventListener('click', () => {
+            simulationState.isRunning = !simulationState.isRunning;
+            const btn = document.getElementById('startStopBtn');
+            const status = document.getElementById('status');
+            if (simulationState.isRunning) {
+                btn.textContent = '⏸️ Pause Learning';
+                status.className = 'status-running';
+                status.textContent = 'Online & Learning';
+                gameStartTime = Date.now();
+            } else {
+                btn.textContent = '🚀 Awaken Consciousness';
+                status.className = 'status-stopped';
+                status.textContent = 'Offline';
+            }
+        });
+
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            scores = { player: 0, ai: 0 };
+            simulationState.step = 0;
+            performanceHistory = [];
+            consciousnessHistory = [];
+            gameHistory = [];
+            gameStartTime = Date.now();
+            resetBall();
+            ai.y = H / 2 - 50;
+            paddle.y = H / 2 - 50;
+            ai.vy = 0;
+            paddle.vy = 0;
+            document.getElementById('thought-log').innerHTML = '';
+            document.getElementById('imagination-paths').innerHTML = '';
+            document.getElementById('proof-metrics').innerHTML = '';
+            model = new ESCAF.SENCSOMPlayer(6, 12, 12, 8);
+            lastW = null;
+            lastC = 0;
+        });
+
+        document.getElementById('imaginationBtn').addEventListener('click', () => {
+            model.imaginationEnabled = !model.imaginationEnabled;
+            const btn = document.getElementById('imaginationBtn');
+            btn.textContent = model.imaginationEnabled ? '🔮 Disable Imagination' : '🧠 Enable Imagination';
+            btn.style.background = model.imaginationEnabled ? 
+                'linear-gradient(135deg, #4a2a8a, #6a3aaa)' : 
+                'linear-gradient(135deg, #2a2a4a, #3a3a5a)';
+        });
+
+        resetBall();
+        animate();
+
+        setTimeout(() => {
+            const thoughtLog = document.getElementById('thought-log');
+            const initialThoughts = [
+                'SENCSOM initialized with categorical qualia poset',
+                'Clifford algebra calibrated for geometric products',
+                'AST comonad ready for state tracking',
+                'Markov factorization engaged for world model',
+                'Consciousness functor awaiting activation'
+            ];
+            initialThoughts.forEach((thought, i) => {
+                setTimeout(() => {
+                    const div = document.createElement('div');
+                    div.className = 'thought';
+                    div.style.color = '#4af';
+                    div.textContent = `Init ${i+1}: ${thought}`;
+                    thoughtLog.appendChild(div);
+                }, i * 800);
+            });
+        }, 1000);
+    </script>
+</body>
+</html>
