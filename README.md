@@ -1,5 +1,3 @@
-Below is an updated and improved GitHub README for **SENCSOM**, incorporating more mathematical formulas and explanations from the draft LaTeX manuscript while maintaining clarity and accessibility. The README is enhanced to better reflect the theoretical foundations, align with the corrected code, and provide a professional yet engaging presentation for researchers, developers, and enthusiasts. New sections clarify the role of the `Syncolator`, `HierarchicalConsensus`, and `ImaginationLoss`, and the future work section is updated to reflect completed tasks.
-
 ---
 
 # 🧠 SENCSOM: Syntrometric Categorical Awareness Network  
@@ -28,7 +26,7 @@ This implementation bridges formal mathematics with interactive AI, offering a t
 
 ## 🎮 Live Demo
 
-👉 **[Try the interactive demo here](https://your-github.io/SENCSOM)**
+👉 **[Try the interactive demo here](https://marko0marky.github.io/SCAN-Pong/)**
 
 Interact with SENCSOM as it plays Pong, displaying:
 - **Consciousness Level**: Real-time \( C \) score.
