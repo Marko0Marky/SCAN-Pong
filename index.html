@@ -3602,8 +3602,8 @@
                     console.error('Consciousness loop error:', error);
                 }
 
-                // OPTIMIZATION: Memory cleanup every 50 steps
-                if (this.step % 50 === 0) {
+                // OPTIMIZATION: Memory cleanup every 500 steps
+                if (this.step % 500 === 0) {
                     this.cleanupMemory();
                 }
 
