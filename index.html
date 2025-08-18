@@ -588,6 +588,18 @@
             return T;
         })();
 
+        // Clifford Basis Vectors for Cl(3,0)
+        const CLIFF_BASIS = [
+            [1,0,0,0,0,0,0,0], // scalar
+            [0,1,0,0,0,0,0,0], // e1
+            [0,0,1,0,0,0,0,0], // e2
+            [0,0,0,1,0,0,0,0], // e3
+            [0,0,0,0,1,0,0,0], // e12
+            [0,0,0,0,0,1,0,0], // e23
+            [0,0,0,0,0,0,1,0], // e31
+            [0,0,0,0,0,0,0,1]  // pseudoscalar
+        ];
+
         function cliffordMultiplyVec(Lmats, q, r) {
             const out = new Array(8).fill(0);
             for (let a = 0; a < 8; a++) {
@@ -695,6 +707,12 @@
             // Use hybrid method for best of both worlds
             return qualiaBindMatrix(Q, alpha, beta, 'hybrid');
         }
+
+        console.log('✅ Core consciousness computation loaded');
+
+
+
+
 
         console.log('✅ Core consciousness computation loaded');
 
@@ -1584,6 +1602,291 @@
 
         console.log('✅ Syncolator and hierarchical consensus loaded');
         console.log('✅ World model and active inference loaded');
+
+        // ===== ULTIMATE SCAN PLAYER =====
+
+        class UltimateSCANPlayer {
+            constructor(featureDim = 6, numNoeons = 12, noeonDim = 12, qDim = 8) {
+                this.featureDim = featureDim;
+                this.numNoeons = numNoeons;
+                this.noeonDim = noeonDim;
+                this.qDim = qDim;
+
+                // Neural tokenizer for converting features to noeons
+                this.tokenW = randomMatrix(numNoeons, featureDim, 0.2);
+                this.tokenB = new Array(numNoeons).fill(0);
+
+                // Core ESCAF components
+                this.sheafDiffusion = new SheafDiffusion(0.5, 20);
+                this.syncolator = new Syncolator();
+                this.hierarchicalConsensus = new HierarchicalConsensus();
+                this.ast = new ASTFilter(noeonDim, Math.max(32, noeonDim * 2));
+                this.worldModel = new WorldModel(featureDim, 3, qDim);
+
+                // Poset structure for geometric operations
+                this.poset = {
+                    geometricProduct: (q1, q2) => geoProduct(q1, q2).slice(0, qDim),
+                    qualiaBindMatrix
+                };
+
+                // Actor-Critic networks
+                this.actorW = randomMatrix(3, featureDim + qDim + 5, 0.1);
+                this.actorB = [0, 0, 0];
+                this.criticW = randomMatrix(1, featureDim + qDim + 5, 0.1);
+                this.criticB = [0];
+
+                // Imagination and memory systems
+                this.imaginationEnabled = true;
+                this.imaginationDepth = 3;
+                this.actionHistory = [];
+                this.stateHistory = [];
+                this.qualiaHistory = [];
+
+                // Mathematical verification
+                this.proof = new ProofHarness(1e-6);
+                this.L_theta = 1.0;
+                this.lastC = 0;
+                this.hyperedges = [];
+            }
+
+            // Tokenizer: Convert feature vector to noeon representations
+            tokenizer_forward(x) {
+                const noeons = [];
+                for (let i = 0; i < this.numNoeons; i++) {
+                    const base = matVecDot([this.tokenW[i]], x) + this.tokenB[i];
+                    const v = new Array(this.noeonDim).fill(0).map((_, k) =>
+                        Math.tanh(base * (0.5 + 0.1 * k))
+                    );
+                    noeons.push(v);
+                }
+                return noeons;
+            }
+
+            // Imagination: Predict future action consequences using world model
+            imagine(currentState, Q, depth = 3) {
+                const paths = [];
+                const actions = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]; // UP, DOWN, IDLE
+
+                for (let ai = 0; ai < actions.length; ai++) {
+                    let state = currentState.slice();
+                    let qual = Q.slice();
+                    let total = 0;
+                    const path = [`Action:${ai}`];
+
+                    for (let step = 0; step < depth; step++) {
+                        const p = this.worldModel.predict(state, actions[ai], qual);
+                        state = p.nextState.slice();
+                        qual = p.nextQ.slice();
+                        total += p.reward * Math.pow(0.9, step); // Discounted reward
+                        path.push(`s${step + 1}: r=${p.reward.toFixed(2)}, fep=${p.fep.toFixed(2)}`);
+                    }
+
+                    paths.push({
+                        action: ai,
+                        value: total,
+                        path,
+                        actionName: ['UP', 'DOWN', 'IDLE'][ai]
+                    });
+                }
+
+                paths.sort((a, b) => b.value - a.value); // Sort by value descending
+                return paths;
+            }
+
+            // Main forward pass: Complete consciousness-driven decision making
+            forward(x) {
+                // 1) Convert input to noeon representations
+                const noeons = this.tokenizer_forward(x);
+
+                // 2) Generate qualia from noeons using Clifford algebra
+                const Q = noeons.map(n => {
+                    const proj = n.slice(0, 8).map((x, i) => x * CLIFF_BASIS[i % 8][i]);
+                    return geoProduct(proj, proj);
+                });
+
+                // 3) Compute qualia binding matrix and sheaf diffusion
+                const B = qualiaBindMatrix(Q);
+                const { W, sheafDiff } = this.sheafDiffusion.forward(B, Q);
+
+                // 4) Apply AST filter for attention
+                const astOut = this.ast.step(noeons);
+                const a = astOut.a;
+                const atilde = W.map(row => row.reduce((s, v) => s + v, 0));
+
+                // 5) Prepare data for consciousness computation
+                const X = noeons.map(n => n.slice(0, Math.min(n.length, 12)));
+                const syntrices = this.syncolator.detect(W, Q);
+                const consensus = this.hierarchicalConsensus.forward([X], this.hyperedges);
+
+                // 6) Compute consciousness using all ESCAF components
+                const consObj = computeConsciousness(W, X, Q, a, atilde, syntrices, this.lastW, {
+                    consensus,
+                    fep: this.worldModel.fepHistory.length > 0 ?
+                         this.worldModel.fepHistory[this.worldModel.fepHistory.length - 1] : 0,
+                    sheafDiff,
+                    lastC: this.lastC
+                });
+                const consciousness = consObj.C;
+
+                // 7) Pool qualia for decision making
+                const qpool = vecZeros(this.qDim);
+                for (let i = 0; i < Q.length; i++) {
+                    for (let j = 0; j < this.qDim; j++) {
+                        qpool[j] += Q[i][j];
+                    }
+                }
+                for (let j = 0; j < this.qDim; j++) {
+                    qpool[j] /= Q.length;
+                }
+
+                // 8) Extract consciousness metrics
+                const gammaPower = Math.min(1, Math.sqrt(Q.reduce((s, q) => s + dot(q, q), 0) / (Q.length * 8)));
+                const stability = consObj.parts.stability;
+                const boundOp = consObj.parts.boundOp;
+                const sheafDiffVal = consObj.parts.sheafDiff;
+
+                // 9) Create enhanced feature vector for decision making
+                const enhanced = x.concat(qpool.slice(0, Math.max(0, Math.min(3, qpool.length))))
+                                  .concat([consciousness, gammaPower, stability, boundOp, sheafDiffVal]);
+
+                // 10) Compute action logits using actor network
+                const logits = [
+                    matVecDot([this.actorW[0]], enhanced) + this.actorB[0],
+                    matVecDot([this.actorW[1]], enhanced) + this.actorB[1],
+                    matVecDot([this.actorW[2]], enhanced) + this.actorB[2]
+                ];
+
+                // 11) Action selection: Use imagination if consciousness is high enough
+                let action, actionProbs, imaginationLoss = 0;
+                if (this.imaginationEnabled && consciousness > 0.35) {
+                    // High consciousness: Use imagination-based planning
+                    const dreams = this.imagine(x, qpool, this.imaginationDepth);
+                    action = dreams[0].action;
+                    actionProbs = [0.1, 0.1, 0.1];
+                    actionProbs[action] = 0.8; // High confidence in imagined action
+                    this.lastImagination = dreams;
+
+                    // Compute imagination loss for training
+                    imaginationLoss = -dreams.reduce((loss, path) => {
+                        const p = actionProbs[path.action];
+                        return loss + p * path.value;
+                    }, 0);
+                } else {
+                    // Low consciousness: Use direct policy
+                    actionProbs = softmax(logits);
+                    action = actionProbs.indexOf(Math.max(...actionProbs));
+                    this.lastImagination = [];
+                }
+
+                // 12) Compute value estimate using critic network
+                const value = matVecDot(this.criticW, enhanced) + this.criticB[0];
+
+                // 13) Update internal state for next iteration
+                this.lastW = W.map(row => row.slice());
+                this.lastC = consciousness;
+
+                return {
+                    action, actionProbs, value, imaginationLoss,
+                    noeons, Q, W, a, atilde, syntrices, consciousness,
+                    gammaPower, stability, boundOp, sheafDiff: sheafDiffVal,
+                    drives: [], imagination: this.lastImagination
+                };
+            }
+
+            // Training: Update networks based on experience
+            train(x, reward, nextX = null) {
+                const out = this.forward(x);
+
+                // Update world model with transition data
+                if (nextX && this.actionHistory.length > 0) {
+                    const lastAction = vecZeros(3);
+                    lastAction[this.actionHistory[this.actionHistory.length - 1]] = 1;
+                    const Q = out.Q[0];
+                    const nextNoeons = this.tokenizer_forward(nextX);
+                    const nextQ = geoProduct(nextNoeons[0], nextNoeons[0]).slice(0, this.qDim);
+                    this.worldModel.storeTransition(
+                        this.stateHistory[this.stateHistory.length - 1],
+                        lastAction, nextX, reward, Q, nextQ
+                    );
+                }
+
+                // Actor-Critic updates
+                const advantage = reward - out.value;
+                this.actorB = this.actorB.map((b, i) =>
+                    b + 1e-3 * (i === out.action ? advantage : -0.01 * advantage)
+                );
+                this.criticB[0] += 1e-3 * advantage;
+
+                // AST filter training
+                const astError = out.a.reduce((s, v, i) => s + Math.pow(v - out.atilde[i], 2), 0);
+                this.ast.update(astError, 1e-3, out.noeons);
+
+                // World model training
+                if (this.worldModel.memory.length > 30 && Math.random() < 0.15) {
+                    this.worldModel.trainFromMemory();
+                }
+
+                // Update history
+                this.actionHistory.push(out.action);
+                this.stateHistory.push(x.slice());
+                this.qualiaHistory.push(out.Q[0]);
+
+                // Maintain history size
+                if (this.actionHistory.length > 200) {
+                    this.actionHistory.shift();
+                    this.stateHistory.shift();
+                    this.qualiaHistory.shift();
+                }
+
+                return Math.abs(advantage) + astError + out.imaginationLoss;
+            }
+
+            // Add hyperedge to hierarchical consensus
+            addHyperedge(nodes, weight = 1.0) {
+                this.hierarchicalConsensus.addHyperedge(nodes, weight);
+            }
+        }
+
+        console.log('✅ UltimateSCANPlayer: Complete consciousness-driven AI agent loaded');
+
+        // ===== ESCAF EXPORTS =====
+
+        // Export all ESCAF components for external use
+        window.ESCAF = {
+            // Core geometric operations
+            geoProduct,
+            dagger,
+            qualiaBindMatrix,
+
+            // Advanced modules
+            SheafDiffusion,
+            ASTFilter,
+            WorldModel,
+            Syncolator,
+            HierarchicalConsensus,
+            ProofHarness,
+            UltimateSCANPlayer,
+
+            // Consciousness computation
+            computeConsciousness,
+
+            // Utility functions
+            dot,
+            normL2,
+            randomMatrix,
+            matVecMul,
+            matVecDot,
+            vecZeros,
+            softmax,
+
+            // Constants
+            CLIFF,
+            CLIFF_BASIS,
+            eps
+        };
+
+        console.info("✅ ESCAF core loaded with Ultimate SCAN components");
+        console.info("✅ UltimateSCANPlayer: Complete consciousness-driven AI agent available");
 
         // ===== GRAMMAR MODEL =====
 
