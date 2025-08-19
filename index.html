@@ -47,40 +47,40 @@
         
         .top-section {
             display: flex;
-            gap: 20px;
-            flex-wrap: wrap;
-            /* GITHUB PAGES FIX: Better responsive behavior */
-            justify-content: center;
+            gap: 15px; /* GITHUB PAGES FIX: Smaller gap to fit 3 panels */
+            flex-wrap: nowrap; /* GITHUB PAGES FIX: Prevent wrapping - force 3 panels side by side */
+            justify-content: space-between; /* GITHUB PAGES FIX: Distribute panels evenly */
             align-items: flex-start;
             max-width: 100%;
             margin: 0 auto;
-            padding: 0 10px;
+            padding: 0 5px; /* GITHUB PAGES FIX: Less padding to save space */
             box-sizing: border-box;
+            overflow-x: auto; /* GITHUB PAGES FIX: Allow horizontal scroll if needed */
         }
         
         .consciousness-panel {
-            flex: 1;
-            min-width: 300px;
-            max-width: 400px; /* GITHUB PAGES FIX: Prevent oversizing */
+            flex: 1 1 320px; /* GITHUB PAGES FIX: Equal flex with specific basis */
+            min-width: 280px; /* GITHUB PAGES FIX: Smaller min-width */
+            max-width: 350px; /* GITHUB PAGES FIX: Smaller max to fit 3 panels */
             background: rgba(10, 10, 30, 0.9);
             border-radius: 12px;
             border: 1px solid #2a2a4a;
             padding: 15px;
             backdrop-filter: blur(10px);
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-            box-sizing: border-box; /* GITHUB PAGES FIX: Include padding in width */
-            overflow: hidden; /* GITHUB PAGES FIX: Prevent content overflow */
-            order: 1; /* GITHUB PAGES FIX: Ensure left position */
+            box-sizing: border-box;
+            overflow: hidden;
+            order: 1;
         }
         
         .visualization-container {
             position: relative;
-            width: 100%; /* GITHUB PAGES FIX: Fill middle column */
-            height: 250px; /* GITHUB PAGES FIX: Smaller to fit in panel */
+            width: 100%;
+            height: 200px; /* GITHUB PAGES FIX: Even smaller to fit 3 panels */
             background: rgba(0, 0, 0, 0.3);
-            border-radius: 8px; /* GITHUB PAGES FIX: Smaller radius to fit */
-            border: 1px solid #4af; /* GITHUB PAGES FIX: Thinner border */
-            box-shadow: 0 0 15px rgba(68, 170, 255, 0.2); /* GITHUB PAGES FIX: Smaller shadow */
+            border-radius: 6px;
+            border: 1px solid #4af;
+            box-shadow: 0 0 10px rgba(68, 170, 255, 0.2);
             box-sizing: border-box;
         }
 
@@ -88,45 +88,46 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 20px;
-            /* GITHUB PAGES FIX: Make it a proper side panel */
-            flex: 1;
-            min-width: 300px;
-            max-width: 600px;
+            gap: 15px; /* GITHUB PAGES FIX: Smaller gap to save space */
+            flex: 1 1 320px; /* GITHUB PAGES FIX: Equal flex with specific basis */
+            min-width: 280px; /* GITHUB PAGES FIX: Smaller min-width */
+            max-width: 350px; /* GITHUB PAGES FIX: Smaller max to fit 3 panels */
             background: rgba(10, 10, 30, 0.9);
             border-radius: 12px;
             border: 1px solid #2a2a4a;
-            padding: 15px;
+            padding: 12px; /* GITHUB PAGES FIX: Less padding to save space */
             backdrop-filter: blur(10px);
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
             box-sizing: border-box;
-            order: 2; /* GITHUB PAGES FIX: Ensure middle position */
+            order: 2;
         }
 
         .narration-panel {
-            width: 100%; /* GITHUB PAGES FIX: Fill middle column */
-            background: rgba(5, 5, 15, 0.7); /* GITHUB PAGES FIX: Darker to distinguish from parent */
-            border-radius: 8px; /* GITHUB PAGES FIX: Smaller radius */
-            border: 1px solid #3a3a5a; /* GITHUB PAGES FIX: Different border color */
-            padding: 10px; /* GITHUB PAGES FIX: Less padding to fit */
+            width: 100%;
+            background: rgba(5, 5, 15, 0.7);
+            border-radius: 6px;
+            border: 1px solid #3a3a5a;
+            padding: 8px; /* GITHUB PAGES FIX: Even less padding */
             backdrop-filter: blur(5px);
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
             box-sizing: border-box;
-            margin: 0; /* GITHUB PAGES FIX: No margin within middle column */
-            max-height: 300px; /* GITHUB PAGES FIX: Smaller height */
+            margin: 0;
+            max-height: 200px; /* GITHUB PAGES FIX: Much smaller height */
             overflow-y: auto;
         }
         
         .game-container {
-            width: 400px;
-            max-width: 100%; /* GITHUB PAGES FIX: Responsive width */
+            flex: 1 1 320px; /* GITHUB PAGES FIX: Equal flex with specific basis */
+            min-width: 280px; /* GITHUB PAGES FIX: Smaller min-width */
+            max-width: 350px; /* GITHUB PAGES FIX: Smaller max to fit 3 panels */
             background: rgba(10, 10, 30, 0.9);
             border-radius: 12px;
             border: 1px solid #2a2a4a;
             padding: 15px;
             text-align: center;
-            box-sizing: border-box; /* GITHUB PAGES FIX: Include padding in width */
-            flex-shrink: 0; /* GITHUB PAGES FIX: Prevent shrinking */
+            box-sizing: border-box;
+            flex-shrink: 0;
+            order: 3; /* GITHUB PAGES FIX: Ensure right position */
         }
         
         .controls-section {
@@ -323,10 +324,12 @@
         .success { color: #4CAF50; }
         .warning { color: #ffa726; }
         
-        @media (max-width: 1200px) {
+        /* GITHUB PAGES FIX: Only stack on smaller screens, keep 3 panels side-by-side on desktop */
+        @media (max-width: 1000px) {
             .top-section {
                 flex-direction: column;
                 align-items: center;
+                flex-wrap: wrap; /* Allow wrapping on small screens */
             }
 
             .consciousness-panel, .middle-column, .game-container {
@@ -334,6 +337,7 @@
                 max-width: 600px;
                 margin: 10px auto;
                 flex: none;
+                max-width: none; /* Remove max-width constraint on mobile */
             }
 
             .visualization-container {
@@ -371,8 +375,10 @@
 
         #gameCanvas {
             display: block !important;
-            max-width: 100% !important;
-            height: auto !important;
+            width: 100% !important; /* GITHUB PAGES FIX: Fill container width */
+            max-width: 320px !important; /* GITHUB PAGES FIX: Limit max size */
+            height: 240px !important; /* GITHUB PAGES FIX: Fixed height to fit panel */
+            object-fit: contain !important; /* GITHUB PAGES FIX: Maintain aspect ratio */
         }
     </style>
 </head>
