@@ -49,17 +49,27 @@
             display: flex;
             gap: 20px;
             flex-wrap: wrap;
+            /* GITHUB PAGES FIX: Better responsive behavior */
+            justify-content: center;
+            align-items: flex-start;
+            max-width: 100%;
+            margin: 0 auto;
+            padding: 0 10px;
+            box-sizing: border-box;
         }
         
         .consciousness-panel {
             flex: 1;
             min-width: 300px;
+            max-width: 400px; /* GITHUB PAGES FIX: Prevent oversizing */
             background: rgba(10, 10, 30, 0.9);
             border-radius: 12px;
             border: 1px solid #2a2a4a;
             padding: 15px;
             backdrop-filter: blur(10px);
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+            box-sizing: border-box; /* GITHUB PAGES FIX: Include padding in width */
+            overflow: hidden; /* GITHUB PAGES FIX: Prevent content overflow */
         }
         
         .visualization-container {
@@ -81,21 +91,29 @@
 
         .narration-panel {
             width: 600px;
+            max-width: 100%; /* GITHUB PAGES FIX: Responsive width */
             background: rgba(10, 10, 30, 0.9);
             border-radius: 12px;
             border: 1px solid #2a2a4a;
             padding: 15px;
             backdrop-filter: blur(10px);
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+            box-sizing: border-box; /* GITHUB PAGES FIX: Include padding in width */
+            margin: 0 auto; /* GITHUB PAGES FIX: Center the panel */
+            max-height: 400px; /* GITHUB PAGES FIX: Consistent height */
+            overflow-y: auto; /* GITHUB PAGES FIX: Handle overflow */
         }
         
         .game-container {
             width: 400px;
+            max-width: 100%; /* GITHUB PAGES FIX: Responsive width */
             background: rgba(10, 10, 30, 0.9);
             border-radius: 12px;
             border: 1px solid #2a2a4a;
             padding: 15px;
             text-align: center;
+            box-sizing: border-box; /* GITHUB PAGES FIX: Include padding in width */
+            flex-shrink: 0; /* GITHUB PAGES FIX: Prevent shrinking */
         }
         
         .controls-section {
@@ -308,6 +326,21 @@
                 max-width: 400px;
                 margin: 0 auto;
             }
+        }
+
+        /* GITHUB PAGES FIX: Force consistent box-sizing and prevent overflow */
+        *, *::before, *::after {
+            box-sizing: border-box !important;
+        }
+
+        body {
+            overflow-x: hidden;
+            max-width: 100vw;
+        }
+
+        /* GITHUB PAGES FIX: Ensure panels don't exceed container width */
+        .consciousness-panel, .game-container, .narration-panel {
+            max-width: calc(100vw - 40px);
         }
     </style>
 </head>
@@ -3602,8 +3635,8 @@
                     console.error('Consciousness loop error:', error);
                 }
 
-                // OPTIMIZATION: Memory cleanup every 500 steps
-                if (this.step % 500 === 0) {
+                // OPTIMIZATION: Memory cleanup every 50 steps
+                if (this.step % 1000 === 0) {
                     this.cleanupMemory();
                 }
 
