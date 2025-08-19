@@ -70,16 +70,18 @@
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
             box-sizing: border-box; /* GITHUB PAGES FIX: Include padding in width */
             overflow: hidden; /* GITHUB PAGES FIX: Prevent content overflow */
+            order: 1; /* GITHUB PAGES FIX: Ensure left position */
         }
         
         .visualization-container {
             position: relative;
-            width: 600px;
-            height: 400px;
+            width: 100%; /* GITHUB PAGES FIX: Fill middle column */
+            height: 250px; /* GITHUB PAGES FIX: Smaller to fit in panel */
             background: rgba(0, 0, 0, 0.3);
-            border-radius: 12px;
-            border: 2px solid #4af;
-            box-shadow: 0 0 30px rgba(68, 170, 255, 0.3);
+            border-radius: 8px; /* GITHUB PAGES FIX: Smaller radius to fit */
+            border: 1px solid #4af; /* GITHUB PAGES FIX: Thinner border */
+            box-shadow: 0 0 15px rgba(68, 170, 255, 0.2); /* GITHUB PAGES FIX: Smaller shadow */
+            box-sizing: border-box;
         }
 
         .middle-column {
@@ -87,21 +89,32 @@
             flex-direction: column;
             align-items: center;
             gap: 20px;
-        }
-
-        .narration-panel {
-            width: 600px;
-            max-width: 100%; /* GITHUB PAGES FIX: Responsive width */
+            /* GITHUB PAGES FIX: Make it a proper side panel */
+            flex: 1;
+            min-width: 300px;
+            max-width: 600px;
             background: rgba(10, 10, 30, 0.9);
             border-radius: 12px;
             border: 1px solid #2a2a4a;
             padding: 15px;
             backdrop-filter: blur(10px);
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-            box-sizing: border-box; /* GITHUB PAGES FIX: Include padding in width */
-            margin: 0 auto; /* GITHUB PAGES FIX: Center the panel */
-            max-height: 400px; /* GITHUB PAGES FIX: Consistent height */
-            overflow-y: auto; /* GITHUB PAGES FIX: Handle overflow */
+            box-sizing: border-box;
+            order: 2; /* GITHUB PAGES FIX: Ensure middle position */
+        }
+
+        .narration-panel {
+            width: 100%; /* GITHUB PAGES FIX: Fill middle column */
+            background: rgba(5, 5, 15, 0.7); /* GITHUB PAGES FIX: Darker to distinguish from parent */
+            border-radius: 8px; /* GITHUB PAGES FIX: Smaller radius */
+            border: 1px solid #3a3a5a; /* GITHUB PAGES FIX: Different border color */
+            padding: 10px; /* GITHUB PAGES FIX: Less padding to fit */
+            backdrop-filter: blur(5px);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+            box-sizing: border-box;
+            margin: 0; /* GITHUB PAGES FIX: No margin within middle column */
+            max-height: 300px; /* GITHUB PAGES FIX: Smaller height */
+            overflow-y: auto;
         }
         
         .game-container {
@@ -313,18 +326,22 @@
         @media (max-width: 1200px) {
             .top-section {
                 flex-direction: column;
+                align-items: center;
             }
-            
-            .visualization-container {
+
+            .consciousness-panel, .middle-column, .game-container {
                 width: 100%;
                 max-width: 600px;
-                margin: 0 auto;
+                margin: 10px auto;
+                flex: none;
             }
-            
-            .game-container {
-                width: 100%;
-                max-width: 400px;
-                margin: 0 auto;
+
+            .visualization-container {
+                height: 300px;
+            }
+
+            .narration-panel {
+                max-height: 250px;
             }
         }
 
@@ -339,8 +356,23 @@
         }
 
         /* GITHUB PAGES FIX: Ensure panels don't exceed container width */
-        .consciousness-panel, .game-container, .narration-panel {
+        .consciousness-panel, .game-container, .narration-panel, .middle-column {
             max-width: calc(100vw - 40px);
+        }
+
+        /* GITHUB PAGES FIX: Force Pong game to always be visible as side panel */
+        .game-container {
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            gap: 10px !important;
+            order: 3; /* Ensure it appears on the right */
+        }
+
+        #gameCanvas {
+            display: block !important;
+            max-width: 100% !important;
+            height: auto !important;
         }
     </style>
 </head>
