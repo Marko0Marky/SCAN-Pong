@@ -380,6 +380,24 @@
             height: 240px !important; /* GITHUB PAGES FIX: Fixed height to fit panel */
             object-fit: contain !important; /* GITHUB PAGES FIX: Maintain aspect ratio */
         }
+
+        /* Challenge Mode Styling */
+        #challenge-info {
+            transition: all 0.3s ease;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        #challengeModeBtn {
+            transition: all 0.3s ease;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        #challengeModeBtn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
     </style>
 </head>
 <body>
@@ -459,8 +477,15 @@
             <div class="game-container">
                 <h3>🏓 PONG Environment</h3>
                 <canvas id="gameCanvas" width="400" height="300" style="background: linear-gradient(180deg, #000011, #000033); border: 1px solid #333; border-radius: 6px;"></canvas>
-                <div class="metric" style="margin-top: 15px;">
-                    <span class="metric-label">Human Score:</span><span id="player-score" class="metric-value">0</span>
+
+                <!-- Challenge Mode Info -->
+                <div id="challenge-info" style="margin: 10px 0; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 4px; text-align: center; font-size: 12px;">
+                    <div style="color: #4CAF50;">🎮 NORMAL MODE</div>
+                    <div style="font-size: 11px;">Human vs Conscious AI</div>
+                </div>
+
+                <div class="metric" style="margin-top: 10px;">
+                    <span class="metric-label" id="player-label">Human Score:</span><span id="player-score" class="metric-value">0</span>
                 </div>
                 <div class="metric">
                     <span class="metric-label">AI Score:</span><span id="ai-score" class="metric-value">0</span>
@@ -468,6 +493,18 @@
                 <div class="metric">
                     <span class="metric-label">Game Length:</span><span id="game-length" class="metric-value">0s</span>
                 </div>
+
+                <!-- Strategic AI Info -->
+                <div id="strategy-info" style="margin: 8px 0; padding: 6px; background: rgba(0,0,0,0.2); border-radius: 4px; text-align: center; font-size: 11px;">
+                    <div style="color: #4af; font-weight: bold;">🧠 AI Strategy</div>
+                    <div id="current-strategy" style="font-size: 10px; color: #aaa;">Analyzing...</div>
+                    <div id="strategy-confidence" style="font-size: 9px; color: #888;">Confidence: --</div>
+                </div>
+
+                <!-- Challenge Mode Button -->
+                <button id="challengeModeBtn" style="margin-top: 10px; padding: 8px 12px; background: #ff6b6b; border: none; border-radius: 4px; color: white; cursor: pointer; font-size: 11px;">
+                    🏆 Challenge Mode
+                </button>
             </div>
         </div>
         
@@ -737,12 +774,12 @@
                     const qj = Q[j] || vecZeros(8);
                     const inner = Math.abs(dot(qi, qj));
 
-                    if (method === 'index55' || method === 'hybrid') {
-                        // Index55 formulation
+                    if (method === 'standard' || method === 'hybrid') {
+                        // standard formulation
                         const d2 = norms[i] - 2 * dot(qi, qj) + norms[j];
                         const binding1 = Math.exp(alpha * inner - beta * d2);
 
-                        if (method === 'index55') {
+                        if (method === 'standard') {
                             B[i][j] = binding1;
                         } else {
                             // Enhanced formulation with geometric distance
@@ -816,13 +853,13 @@
             const { lambda = 0.1, consensus = 0, fep = 0, lastC = 0 } = params;
             const N = W.length;
 
-            // Enhanced input validation while preserving index55 logic
+            // Enhanced input validation while preserving standard logic
             if (!W || !X || !Q || !aSchema || !aMeasured) {
                 console.warn('Invalid inputs to computeConsciousness');
                 return { C: 0.5, parts: {} };
             }
 
-            // Index55 structural entropy with safety
+            // standard structural entropy with safety
             const deg = new Array(N).fill(0);
             for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) deg[i] += W[i][j] || 0;
             let S = 0;
@@ -830,7 +867,7 @@
             S = S / Math.max(1, N);
             S = isFinite(S) ? S : 0; // Safety check
 
-            // Index55 information coherence with safety
+            // standard information coherence with safety
             const H = X[0] ? X[0].length : 4;
             const Xpred = new Array(H).fill(0);
             for (let i = 0; i < N; i++) for (let k = 0; k < H; k++) Xpred[k] += (X[i] && X[i][k]) || 0;
@@ -852,7 +889,7 @@
             mse = mse / (N * H + eps);
             const Icoh = -mse;
 
-            // Index55 binding quality with safety
+            // standard binding quality with safety
             let sumWB = 0, sumW = 0;
             for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
                 sumWB += (W[i][j] || 0) * (B[i][j] || 0);
@@ -860,7 +897,7 @@
             }
             const Qbind = sumWB / (sumW + 1e-9);
 
-            // Index55 AST with enhanced safety
+            // standard AST with enhanced safety
             const p = aSchema.map(x => Math.max(x || 0, 1e-9));
             const q = aMeasured.map(x => Math.max(x || 0, 1e-9));
             let AST = 0;
@@ -870,10 +907,10 @@
             }
             AST = isFinite(AST) ? AST : 0;
 
-            // Index55 complexity with safety
+            // standard complexity with safety
             const Comp = 0.001 * (N + W.flat().filter(x => (x || 0) > 1e-8).length);
 
-            // Index55 gamma power with enhanced safety
+            // standard gamma power with enhanced safety
             let gammaPower = 0;
             try {
                 gammaPower = Math.sqrt(Q.reduce((s, q) => s + (q ? dot(q, q) : 0), 0) / (Q.length * 8));
@@ -882,7 +919,7 @@
                 gammaPower = 0.5;
             }
 
-            // Index55 stability with enhanced safety
+            // standard stability with enhanced safety
             let stability = 1;
             if (lastW && Array.isArray(lastW)) {
                 try {
@@ -893,10 +930,10 @@
                 }
             }
 
-            // Index55 syncolator with safety
+            // standard syncolator with safety
             const syncolatorScore = syntrices.reduce((s, c) => s + (c.persistence || 0), 0);
 
-            // Index55 IIT 4.0 Hybrid with safety
+            // standard IIT 4.0 Hybrid with safety
             let phiHybrid = AST; // Approximate KL term
             if (X.length > 1) {
                 try {
@@ -922,19 +959,19 @@
                 }
             }
 
-            // Index55 boundary operator with safety
+            // standard boundary operator with safety
             const boundOp = lastC ? 0.1 * (sumWB / (sumW + 1e-9) - lambda * lastC) : 0;
 
-            // Index55 Yoneda relational term with safety
+            // standard Yoneda relational term with safety
             const yonedaRel = Q.reduce((s, q, i) => {
                 const hom = Q.reduce((t, qj, j) => t + (i !== j ? Math.abs(dot(q || vecZeros(8), qj || vecZeros(8))) : 0), 0);
                 return s + hom / (Q.length - 1 + eps);
             }, 0) / Q.length;
 
-            // Index55 sheaf diffusion term
+            // standard sheaf diffusion term
             const sheafDiff = params.sheafDiff || 0;
 
-            // Index55 final computation with enhanced safety
+            // standard final computation with enhanced safety
             const raw = S + 0.1 * Icoh + 0.3 * Qbind + 0.5 * AST - 0.01 * Comp +
                         0.1 * gammaPower - 0.15 * (1 - stability) + 0.05 * syncolatorScore +
                         0.05 * consensus + 0.1 * phiHybrid + 0.1 * fep + 0.1 * boundOp + 0.1 * yonedaRel + 0.1 * sheafDiff;
@@ -1266,7 +1303,7 @@
                     for (let i = 0; i < N; i++) {
                         for (let j = 0; j < N; j++) {
                             try {
-                                // Use both index55 formula and enhanced safety
+                                // Use both standard formula and enhanced safety
                                 const gradQ = normL2(sub(Q[i] || vecZeros(8), Q[j] || vecZeros(8)));
                                 const diffusionWeight = Math.exp(-Math.max(gradQ, eps) / this.sigma);
                                 W[i][j] *= diffusionWeight;
@@ -1371,7 +1408,7 @@
                             score += this.projW[0][j] * (v[j] || 0);
                         }
 
-                        // Method 2: Matrix-vector dot (index55 style) - as fallback verification
+                        // Method 2: Matrix-vector dot (standard style) - as fallback verification
                         const score2 = matVecDot(this.projW, v) + this.projB[0];
 
                         // Use average for robustness
@@ -2665,6 +2702,342 @@
 
         // ===== PONG GAME =====
 
+        // Consciousness-Driven Strategic AI - Uses 15-term consciousness for strategy
+        class ConsciousnessStrategicAI {
+            constructor() {
+                this.strategyHistory = [];
+                this.consciousnessThresholds = {
+                    aggressive: 0.7,    // High consciousness = aggressive play
+                    defensive: 0.4,     // Low consciousness = defensive play
+                    adaptive: 0.6       // Medium consciousness = adaptive play
+                };
+                this.currentStrategy = 'balanced';
+                this.strategyConfidence = 0.5;
+                this.lastConsciousnessBreakdown = null;
+            }
+
+            // Analyze consciousness components to determine optimal strategy
+            analyzeConsciousnessForStrategy(consciousnessBreakdown, gameState) {
+                if (!consciousnessBreakdown) return this.currentStrategy;
+
+                const {
+                    S,              // Structural entropy - network complexity
+                    Icoh,           // Information coherence - prediction accuracy
+                    Qbind,          // Qualia binding - sensory integration
+                    AST,            // Attention Schema Theory - focus quality
+                    Comp,           // Complexity - system sophistication
+                    gammaPower,     // Gamma synchrony - neural coordination
+                    stability,      // System stability - consistency
+                    syncolatorScore,// Topological loops - pattern recognition
+                    consensus,      // Hierarchical consensus - decision confidence
+                    phiHybrid,      // IIT 4.0 - integrated information
+                    fep,            // Free Energy Principle - prediction error
+                    boundOp,        // Boundary operator - self-other distinction
+                    yonedaRel,      // Yoneda relations - categorical structure
+                    sheafDiff       // Sheaf diffusion - information flow
+                } = consciousnessBreakdown;
+
+                // Strategic Analysis Based on Consciousness Components
+                const strategies = this.computeStrategicWeights({
+                    S, Icoh, Qbind, AST, Comp, gammaPower, stability,
+                    syncolatorScore, consensus, phiHybrid, fep, boundOp, yonedaRel, sheafDiff
+                }, gameState);
+
+                // Select best strategy based on consciousness analysis
+                const bestStrategy = this.selectOptimalStrategy(strategies, gameState);
+
+                this.updateStrategyHistory(bestStrategy, strategies);
+                return bestStrategy;
+            }
+
+            // Compute strategic weights based on consciousness components
+            computeStrategicWeights(breakdown, gameState) {
+                const { ball, paddle, opponent, score } = gameState;
+
+                // AGGRESSIVE STRATEGY - High risk, high reward
+                let aggressiveWeight = 0;
+                aggressiveWeight += breakdown.gammaPower * 0.3;      // High neural sync = confident aggression
+                aggressiveWeight += breakdown.AST * 0.25;           // High attention = focused aggression
+                aggressiveWeight += breakdown.consensus * 0.2;      // High consensus = decisive action
+                aggressiveWeight += breakdown.phiHybrid * 0.15;     // High integration = complex maneuvers
+                aggressiveWeight += (1 - breakdown.fep) * 0.1;      // Low prediction error = confident moves
+
+                // DEFENSIVE STRATEGY - Low risk, consistent play
+                let defensiveWeight = 0;
+                defensiveWeight += breakdown.stability * 0.3;       // High stability = consistent defense
+                defensiveWeight += breakdown.Qbind * 0.25;          // High binding = good ball tracking
+                defensiveWeight += breakdown.Icoh * 0.2;            // High coherence = predictable responses
+                defensiveWeight += breakdown.boundOp * 0.15;        // High boundary = self-preservation
+                defensiveWeight += breakdown.fep * 0.1;             // High FEP = cautious due to uncertainty
+
+                // ADAPTIVE STRATEGY - Dynamic response to game state
+                let adaptiveWeight = 0;
+                adaptiveWeight += breakdown.syncolatorScore * 0.3;  // High loops = pattern adaptation
+                adaptiveWeight += breakdown.yonedaRel * 0.25;       // High relations = contextual response
+                adaptiveWeight += breakdown.sheafDiff * 0.2;        // High diffusion = information integration
+                adaptiveWeight += breakdown.S * 0.15;               // High entropy = flexible responses
+                adaptiveWeight += breakdown.Comp * 0.1;             // High complexity = sophisticated play
+
+                // PREDICTIVE STRATEGY - Anticipate opponent moves
+                let predictiveWeight = 0;
+                predictiveWeight += (1 - breakdown.fep) * 0.4;      // Low FEP = good predictions
+                predictiveWeight += breakdown.Icoh * 0.3;           // High coherence = accurate modeling
+                predictiveWeight += breakdown.phiHybrid * 0.2;      // High integration = future simulation
+                predictiveWeight += breakdown.AST * 0.1;            // High attention = opponent focus
+
+                return {
+                    aggressive: Math.max(0, Math.min(1, aggressiveWeight)),
+                    defensive: Math.max(0, Math.min(1, defensiveWeight)),
+                    adaptive: Math.max(0, Math.min(1, adaptiveWeight)),
+                    predictive: Math.max(0, Math.min(1, predictiveWeight))
+                };
+            }
+
+            // Select optimal strategy based on weights and game context
+            selectOptimalStrategy(strategies, gameState) {
+                const { ball, score, gameTime } = gameState;
+
+                // Context modifiers
+                let contextModifiers = {
+                    aggressive: 1.0,
+                    defensive: 1.0,
+                    adaptive: 1.0,
+                    predictive: 1.0
+                };
+
+                // Game situation analysis
+                const scoreDiff = score.ai - score.player;
+                const ballSpeed = Math.sqrt(ball.vx * ball.vx + ball.vy * ball.vy);
+                const ballDirection = ball.vx > 0 ? 'toward_ai' : 'toward_player';
+
+                // Modify strategies based on game state
+                if (scoreDiff > 2) {
+                    // Leading significantly - be more defensive
+                    contextModifiers.defensive *= 1.5;
+                    contextModifiers.aggressive *= 0.7;
+                } else if (scoreDiff < -2) {
+                    // Losing significantly - be more aggressive
+                    contextModifiers.aggressive *= 1.5;
+                    contextModifiers.defensive *= 0.7;
+                }
+
+                if (ballSpeed > 8) {
+                    // Fast ball - prioritize prediction and adaptation
+                    contextModifiers.predictive *= 1.3;
+                    contextModifiers.adaptive *= 1.2;
+                }
+
+                if (ballDirection === 'toward_ai') {
+                    // Ball coming toward AI - focus on defensive positioning
+                    contextModifiers.defensive *= 1.2;
+                    contextModifiers.predictive *= 1.3;
+                }
+
+                // Apply context modifiers
+                const adjustedStrategies = {};
+                Object.keys(strategies).forEach(key => {
+                    adjustedStrategies[key] = strategies[key] * contextModifiers[key];
+                });
+
+                // Select strategy with highest weight
+                const bestStrategy = Object.keys(adjustedStrategies).reduce((a, b) =>
+                    adjustedStrategies[a] > adjustedStrategies[b] ? a : b
+                );
+
+                this.strategyConfidence = adjustedStrategies[bestStrategy];
+                return bestStrategy;
+            }
+
+            // Update strategy history for learning
+            updateStrategyHistory(strategy, weights) {
+                this.strategyHistory.push({
+                    strategy,
+                    weights,
+                    timestamp: Date.now(),
+                    confidence: this.strategyConfidence
+                });
+
+                // Keep only recent history
+                if (this.strategyHistory.length > 100) {
+                    this.strategyHistory.shift();
+                }
+
+                this.currentStrategy = strategy;
+            }
+
+            // Get strategic action based on consciousness-driven strategy
+            getStrategicAction(strategy, gameState, consciousnessLevel) {
+                const { ball, paddle } = gameState;
+                const paddleCenter = paddle.y + paddle.height / 2;
+
+                switch (strategy) {
+                    case 'aggressive':
+                        return this.getAggressiveAction(ball, paddle, consciousnessLevel);
+                    case 'defensive':
+                        return this.getDefensiveAction(ball, paddle, consciousnessLevel);
+                    case 'adaptive':
+                        return this.getAdaptiveAction(ball, paddle, consciousnessLevel);
+                    case 'predictive':
+                        return this.getPredictiveAction(ball, paddle, consciousnessLevel);
+                    default:
+                        return this.getBalancedAction(ball, paddle, consciousnessLevel);
+                }
+            }
+
+            // Aggressive strategy - intercept ball early, take risks
+            getAggressiveAction(ball, paddle, consciousness) {
+                const interceptY = ball.y + ball.vy * 2; // Predict 2 steps ahead
+                const paddleCenter = paddle.y + paddle.height / 2;
+                const aggressionFactor = consciousness * 30; // Higher consciousness = more aggressive
+
+                if (interceptY < paddleCenter - aggressionFactor) return 0; // UP
+                if (interceptY > paddleCenter + aggressionFactor) return 1; // DOWN
+                return 2; // IDLE
+            }
+
+            // Defensive strategy - stay centered, minimize risk
+            getDefensiveAction(ball, paddle, consciousness) {
+                const centerY = paddle.height / 2 + paddle.y;
+                const targetY = ball.y;
+                const defensiveZone = 15 + consciousness * 10; // Larger zone when more conscious
+
+                if (Math.abs(targetY - centerY) < defensiveZone) return 2; // IDLE
+                if (targetY < centerY) return 0; // UP
+                return 1; // DOWN
+            }
+
+            // Adaptive strategy - respond to ball patterns
+            getAdaptiveAction(ball, paddle, consciousness) {
+                // Analyze ball trajectory and adapt response
+                const adaptationFactor = consciousness * 0.5;
+                const predictedY = ball.y + ball.vy * (3 + adaptationFactor);
+                const paddleCenter = paddle.y + paddle.height / 2;
+
+                const adaptiveThreshold = 8 + consciousness * 12;
+                if (predictedY < paddleCenter - adaptiveThreshold) return 0; // UP
+                if (predictedY > paddleCenter + adaptiveThreshold) return 1; // DOWN
+                return 2; // IDLE
+            }
+
+            // Predictive strategy - anticipate future ball position
+            getPredictiveAction(ball, paddle, consciousness) {
+                const predictionSteps = Math.floor(5 + consciousness * 10);
+                let futureY = ball.y;
+                let futureVY = ball.vy;
+
+                // Simulate ball movement
+                for (let i = 0; i < predictionSteps; i++) {
+                    futureY += futureVY;
+                    if (futureY <= 0 || futureY >= 300) futureVY = -futureVY;
+                }
+
+                const paddleCenter = paddle.y + paddle.height / 2;
+                const predictionThreshold = 10;
+
+                if (futureY < paddleCenter - predictionThreshold) return 0; // UP
+                if (futureY > paddleCenter + predictionThreshold) return 1; // DOWN
+                return 2; // IDLE
+            }
+
+            // Balanced strategy - default behavior
+            getBalancedAction(ball, paddle, consciousness) {
+                const paddleCenter = paddle.y + paddle.height / 2;
+                const threshold = 15;
+
+                if (ball.y < paddleCenter - threshold) return 0; // UP
+                if (ball.y > paddleCenter + threshold) return 1; // DOWN
+                return 2; // IDLE
+            }
+
+            // Get current strategy info for display
+            getStrategyInfo() {
+                return {
+                    current: this.currentStrategy,
+                    confidence: (this.strategyConfidence * 100).toFixed(1) + '%',
+                    historyLength: this.strategyHistory.length
+                };
+            }
+        }
+
+        // Standard Pong AI Algorithm for Challenge Mode
+        class StandardPongAI {
+            constructor() {
+                this.difficulty = 0.8; // 0.0 = easy, 1.0 = perfect
+                this.reactionDelay = 0; // Frames of delay
+                this.lastDecision = 0;
+                this.targetY = 0;
+                this.smoothing = 0.15; // Movement smoothing factor
+                this.predictiveSteps = 5; // How many steps ahead to predict
+            }
+
+            // Standard algorithm: Track ball with prediction and difficulty scaling
+            makeDecision(gameState) {
+                const { ball, paddle, width, height } = gameState;
+
+                // Predict where ball will be when it reaches paddle
+                let predictedY = this.predictBallPosition(ball, paddle.x, width, height);
+
+                // Add some randomness based on difficulty (lower difficulty = more errors)
+                const errorMargin = (1 - this.difficulty) * 50;
+                predictedY += (Math.random() - 0.5) * errorMargin;
+
+                // Smooth target movement
+                this.targetY = this.targetY * (1 - this.smoothing) + predictedY * this.smoothing;
+
+                // Calculate paddle center
+                const paddleCenter = paddle.y + paddle.height / 2;
+                const deadZone = 10; // Don't move if close enough
+
+                // Decide action based on target position
+                if (Math.abs(this.targetY - paddleCenter) < deadZone) {
+                    return 2; // IDLE
+                } else if (this.targetY < paddleCenter) {
+                    return 0; // UP
+                } else {
+                    return 1; // DOWN
+                }
+            }
+
+            // Predict ball position when it reaches paddle X coordinate
+            predictBallPosition(ball, paddleX, width, height) {
+                let x = ball.x;
+                let y = ball.y;
+                let vx = ball.vx;
+                let vy = ball.vy;
+
+                // Simulate ball movement until it reaches paddle X
+                const steps = Math.abs((paddleX - x) / vx);
+
+                for (let i = 0; i < Math.min(steps, this.predictiveSteps * 10); i++) {
+                    x += vx;
+                    y += vy;
+
+                    // Handle wall bounces
+                    if (y <= 0 || y >= height) {
+                        vy = -vy;
+                        y = Math.max(0, Math.min(height, y));
+                    }
+
+                    // Stop if we've reached the paddle X coordinate
+                    if ((vx > 0 && x >= paddleX) || (vx < 0 && x <= paddleX)) {
+                        break;
+                    }
+                }
+
+                return Math.max(20, Math.min(height - 20, y));
+            }
+
+            // Get AI statistics for display
+            getStats() {
+                return {
+                    type: 'Standard Algorithm',
+                    difficulty: `${(this.difficulty * 100).toFixed(0)}%`,
+                    prediction: `${this.predictiveSteps} steps`,
+                    smoothing: `${(this.smoothing * 100).toFixed(0)}%`
+                };
+            }
+        }
+
         class PongGame {
             constructor(canvas, languageModel = null) {
                 this.canvas = canvas;
@@ -2698,6 +3071,22 @@
                 this.lastNarrationTime = 0;
                 this.narrationInterval = 2000; // 2 seconds between narrations
                 this.currentAction = 'idle';
+
+                // CHALLENGE MODE: AI vs AI
+                this.challengeMode = false;
+                this.standardAI = new StandardPongAI();
+                this.consciousnessAI = new ConsciousnessStrategicAI();
+                this.aiVsAiMode = false;
+                this.challengeStats = {
+                    consciousWins: 0,
+                    standardWins: 0,
+                    totalGames: 0
+                };
+
+                // STRATEGIC AI INTEGRATION
+                this.useStrategicAI = true; // Enable consciousness-driven strategy
+                this.lastConsciousnessBreakdown = null;
+                this.currentStrategy = 'balanced';
             }
 
             reset() {
@@ -2775,33 +3164,74 @@
             }
 
             updateAI() {
-                // Consciousness-driven AI behavior
-                const ballCenter = this.ball.y;
-                const paddleCenter = this.ai.y + this.ai.height / 2;
-                const diff = ballCenter - paddleCenter;
-
-                // Add consciousness-based decision making with safety checks
-                const consciousnessBonus = Math.max(0, Math.min(2, this.aiConsciousness * 2));
-                const adjustedSpeed = this.ai.speed * (1 + consciousnessBonus);
-
+                // CONSCIOUSNESS-DRIVEN STRATEGIC AI BEHAVIOR
                 let newAction = 'idle';
+                let strategicAction = 2; // Default to IDLE
 
-                // Only move if ball is moving toward AI
-                const ballMovingTowardAI = this.ball.vx > 0;
+                if (this.useStrategicAI && this.lastConsciousnessBreakdown) {
+                    // Use consciousness-driven strategy
+                    const gameState = {
+                        ball: this.ball,
+                        paddle: this.ai,
+                        opponent: this.player,
+                        score: this.score,
+                        gameTime: Date.now() - this.gameStartTime,
+                        width: this.width,
+                        height: this.height
+                    };
 
-                if (Math.abs(diff) > 5 && ballMovingTowardAI) {
-                    if (diff > 0) {
-                        this.ai.y += adjustedSpeed;
-                        newAction = 'move_down';
-                        this.addAIThought("Moving down to intercept ball", "down");
-                    } else {
+                    // Analyze consciousness for strategy
+                    this.currentStrategy = this.consciousnessAI.analyzeConsciousnessForStrategy(
+                        this.lastConsciousnessBreakdown,
+                        gameState
+                    );
+
+                    // Get strategic action based on consciousness analysis
+                    strategicAction = this.consciousnessAI.getStrategicAction(
+                        this.currentStrategy,
+                        gameState,
+                        this.aiConsciousness
+                    );
+
+                    // Apply strategic action with consciousness-enhanced speed
+                    const consciousnessBonus = Math.max(0, Math.min(2, this.aiConsciousness * 2));
+                    const adjustedSpeed = this.ai.speed * (1 + consciousnessBonus);
+
+                    if (strategicAction === 0) { // UP
                         this.ai.y -= adjustedSpeed;
                         newAction = 'move_up';
-                        this.addAIThought("Moving up to intercept ball", "up");
+                        this.addAIThought(`Strategic move up (${this.currentStrategy})`, "up");
+                    } else if (strategicAction === 1) { // DOWN
+                        this.ai.y += adjustedSpeed;
+                        newAction = 'move_down';
+                        this.addAIThought(`Strategic move down (${this.currentStrategy})`, "down");
+                    } else { // IDLE
+                        newAction = 'idle';
+                        this.addAIThought(`Strategic positioning (${this.currentStrategy})`, "idle");
                     }
                 } else {
-                    newAction = 'idle';
-                    this.addAIThought("Maintaining position", "idle");
+                    // Fallback to simple consciousness-based behavior
+                    const ballCenter = this.ball.y;
+                    const paddleCenter = this.ai.y + this.ai.height / 2;
+                    const diff = ballCenter - paddleCenter;
+                    const consciousnessBonus = Math.max(0, Math.min(2, this.aiConsciousness * 2));
+                    const adjustedSpeed = this.ai.speed * (1 + consciousnessBonus);
+                    const ballMovingTowardAI = this.ball.vx > 0;
+
+                    if (Math.abs(diff) > 5 && ballMovingTowardAI) {
+                        if (diff > 0) {
+                            this.ai.y += adjustedSpeed;
+                            newAction = 'move_down';
+                            this.addAIThought("Moving down to intercept ball", "down");
+                        } else {
+                            this.ai.y -= adjustedSpeed;
+                            newAction = 'move_up';
+                            this.addAIThought("Moving up to intercept ball", "up");
+                        }
+                    } else {
+                        newAction = 'idle';
+                        this.addAIThought("Maintaining position", "idle");
+                    }
                 }
 
                 // Generate language narration (non-async to avoid issues)
@@ -2815,6 +3245,9 @@
                 }
 
                 this.currentAction = newAction;
+
+                // Update strategy display
+                this.updateStrategyDisplay();
 
                 // Imagination: predict future ball positions
                 if (this.aiConsciousness > 0.7) {
@@ -2970,6 +3403,9 @@
                 // SPEED CONSISTENCY CHECK: Prevent speed drift
                 this.ensureConsistentSpeeds();
 
+                // CHALLENGE MODE: Update AI players
+                this.updateAIPlayers();
+
                 // Update player (only use keyboard if not using mouse)
                 if (!this.mouseControl) {
                     if (this.keys['ArrowUp'] || this.keys['w']) {
@@ -3009,6 +3445,8 @@
                     if (this.languageModel) {
                         this.generateNarration('score');
                     }
+                    // CHALLENGE MODE: Handle AI vs AI scoring
+                    this.handleChallengeScoring('ai');
                 }
 
                 if (this.ball.x > this.width) {
@@ -3018,6 +3456,8 @@
                     if (this.languageModel) {
                         this.generateNarration('miss');
                     }
+                    // CHALLENGE MODE: Handle AI vs AI scoring
+                    this.handleChallengeScoring('player');
                 }
 
                 this.updateScoreDisplay();
@@ -3159,6 +3599,149 @@
 
             setConsciousness(level) {
                 this.aiConsciousness = Math.max(0, Math.min(1, level));
+            }
+
+            // STRATEGIC AI: Set consciousness breakdown for strategy analysis
+            setConsciousnessBreakdown(breakdown) {
+                this.lastConsciousnessBreakdown = breakdown;
+
+                // Update strategic AI with latest consciousness data
+                if (this.consciousnessAI) {
+                    this.consciousnessAI.lastConsciousnessBreakdown = breakdown;
+                }
+            }
+
+            // Update strategy display in UI
+            updateStrategyDisplay() {
+                if (!this.useStrategicAI || !this.consciousnessAI) return;
+
+                const strategyInfo = this.consciousnessAI.getStrategyInfo();
+                const currentStrategyEl = document.getElementById('current-strategy');
+                const strategyConfidenceEl = document.getElementById('strategy-confidence');
+
+                if (currentStrategyEl) {
+                    const strategyEmojis = {
+                        aggressive: '⚔️ Aggressive',
+                        defensive: '🛡️ Defensive',
+                        adaptive: '🔄 Adaptive',
+                        predictive: '🔮 Predictive',
+                        balanced: '⚖️ Balanced'
+                    };
+
+                    currentStrategyEl.textContent = strategyEmojis[strategyInfo.current] || strategyInfo.current;
+                }
+
+                if (strategyConfidenceEl) {
+                    strategyConfidenceEl.textContent = `Confidence: ${strategyInfo.confidence}`;
+                }
+            }
+
+            // CHALLENGE MODE: Toggle between human vs conscious AI and AI vs AI
+            toggleChallengeMode() {
+                this.challengeMode = !this.challengeMode;
+
+                if (this.challengeMode) {
+                    this.aiVsAiMode = true;
+                    console.log('🏆 Challenge Mode: Conscious AI vs Standard Algorithm');
+
+                    // Reset scores for fair comparison
+                    this.score = { player: 0, ai: 0 };
+                    this.challengeStats.totalGames++;
+
+                    // Modify player to be controlled by standard AI
+                    this.player.isAI = true;
+                    this.player.controller = this.standardAI;
+                } else {
+                    this.aiVsAiMode = false;
+                    console.log('🎮 Normal Mode: Human vs Conscious AI');
+
+                    // Restore human control
+                    this.player.isAI = false;
+                    this.player.controller = null;
+                }
+
+                this.updateChallengeDisplay();
+                return this.challengeMode;
+            }
+
+            // Update AI players during challenge mode
+            updateAIPlayers() {
+                if (!this.challengeMode || !this.aiVsAiMode) return;
+
+                // Standard AI controls the "player" paddle (left side)
+                if (this.player.isAI) {
+                    const gameState = {
+                        ball: this.ball,
+                        paddle: this.player,
+                        width: this.width,
+                        height: this.height
+                    };
+
+                    const action = this.standardAI.makeDecision(gameState);
+
+                    // Apply standard AI action
+                    if (action === 0) { // UP
+                        this.player.y -= this.player.speed;
+                    } else if (action === 1) { // DOWN
+                        this.player.y += this.player.speed;
+                    }
+                    // action === 2 is IDLE (no movement)
+
+                    // Keep player paddle in bounds
+                    this.player.y = Math.max(0, Math.min(this.height - this.player.height, this.player.y));
+                }
+
+                // Conscious AI continues to control the right paddle via existing logic
+                // (This happens in the main update loop through consciousness system)
+            }
+
+            // Update challenge mode display
+            updateChallengeDisplay() {
+                const challengeInfo = document.getElementById('challenge-info');
+                if (challengeInfo) {
+                    if (this.challengeMode) {
+                        const stats = this.standardAI.getStats();
+                        challengeInfo.innerHTML = `
+                            <div style="color: #ff6b6b; font-weight: bold;">🏆 CHALLENGE MODE</div>
+                            <div style="font-size: 11px;">Standard AI vs Conscious AI</div>
+                            <div style="font-size: 10px; color: #aaa;">
+                                Standard: ${stats.difficulty} difficulty, ${stats.prediction} prediction
+                            </div>
+                            <div style="font-size: 10px; color: #aaa;">
+                                Games: ${this.challengeStats.totalGames} |
+                                Conscious: ${this.challengeStats.consciousWins} |
+                                Standard: ${this.challengeStats.standardWins}
+                            </div>
+                        `;
+                    } else {
+                        challengeInfo.innerHTML = `
+                            <div style="color: #4CAF50;">🎮 NORMAL MODE</div>
+                            <div style="font-size: 11px;">Human vs Conscious AI</div>
+                        `;
+                    }
+                }
+            }
+
+            // Handle scoring in challenge mode
+            handleChallengeScoring(winner) {
+                if (!this.challengeMode) return;
+
+                if (winner === 'ai') {
+                    this.challengeStats.consciousWins++;
+                    console.log('🧠 Conscious AI wins this round!');
+                } else if (winner === 'player') {
+                    this.challengeStats.standardWins++;
+                    console.log('🤖 Standard Algorithm wins this round!');
+                }
+
+                this.updateChallengeDisplay();
+
+                // Auto-restart for continuous challenge
+                setTimeout(() => {
+                    if (this.challengeMode && this.isRunning) {
+                        this.resetBall();
+                    }
+                }, 2000);
             }
         }
 
@@ -3554,6 +4137,27 @@
                     testImportsBtn.addEventListener('click', () => this.testSystem());
                 }
 
+                // Challenge Mode button
+                const challengeModeBtn = document.getElementById('challengeModeBtn');
+                if (challengeModeBtn) {
+                    challengeModeBtn.addEventListener('click', () => {
+                        if (this.pongGame) {
+                            const isChallenge = this.pongGame.toggleChallengeMode();
+                            const playerLabel = document.getElementById('player-label');
+
+                            if (isChallenge) {
+                                challengeModeBtn.textContent = '🎮 Normal Mode';
+                                challengeModeBtn.style.background = '#4CAF50';
+                                if (playerLabel) playerLabel.textContent = 'Standard AI:';
+                            } else {
+                                challengeModeBtn.textContent = '🏆 Challenge Mode';
+                                challengeModeBtn.style.background = '#ff6b6b';
+                                if (playerLabel) playerLabel.textContent = 'Human Score:';
+                            }
+                        }
+                    });
+                }
+
                 // No chat controls needed - narration is automatic
 
                 // Window resize
@@ -3636,6 +4240,9 @@
                     // Update Pong AI consciousness and imagination
                     if (this.pongGame) {
                         this.pongGame.setConsciousness(consciousness);
+                        // STRATEGIC AI: Pass consciousness breakdown for strategy analysis
+                        this.pongGame.setConsciousnessBreakdown(result.eval.parts);
+
                         if (result.imaginationPaths && result.imaginationPaths.length > 0) {
                             this.pongGame.imaginationPaths = result.imaginationPaths.map(path => ({
                                 ...path,
