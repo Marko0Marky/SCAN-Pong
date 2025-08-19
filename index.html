@@ -896,7 +896,9 @@
                 sumWB += (W[i][j] || 0) * (B[i][j] || 0);
                 sumW += W[i][j] || 0;
             }
-            const Qbind = sumWB / (sumW + 1e-9);
+            let Qbind = sumWB / (sumW + 1e-9);
+            // STABILITY: Prevent Qbind explosion
+            Qbind = Math.min(Qbind, 100.0); // Cap at reasonable maximum
 
             // standard AST with enhanced safety - FIXED: Proper KL divergence computation
             const p = aSchema.map(x => Math.max(x || 0, 1e-9));
@@ -1043,47 +1045,192 @@
             G.stepCount++;
 
   // PERFORMANCE FIX: Restore optimization to prevent lag
-            const shouldFullUpdate = G.stepCount % 5 === 0; // Only every 5th step for performance
+            const shouldFullUpdate = G.stepCount % 10 === 0; // PERFORMANCE: Only every 10th step
             const shouldQuickUpdate = G.stepCount % 2 === 0; // Every 2nd step
-            // 1) Update node features from observations + add evolution noise
+            // 1) Update node features from observations - NATURAL EVOLUTION based on game state
             if (observations.X) {
                 for (let i = 0; i < Math.min(n, observations.X.length); i++) {
                     G.X[i] = observations.X[i].slice();
                 }
-            } else if (shouldQuickUpdate) {
-                // PERFORMANCE FIX: Only add noise on quick updates, not every step
-                for (let i = 0; i < n; i++) {
-                    for (let j = 0; j < G.X[i].length; j++) {
-                        G.X[i][j] += (Math.random() - 0.5) * 0.005; // Reduced noise for performance
+            } else if (observations.gameState) {
+                // NATURAL: Update node features based on actual game interactions
+                const gameState = observations.gameState;
+
+                // DEBUG: Log game state and qualia evolution occasionally
+                if (G.stepCount % 50 === 0) {
+                    const qualiaSum = G.q.reduce((s, q) => s + (q ? dot(q, q) : 0), 0);
+                    const avgW = G.W.flat().reduce((s, v) => s + v, 0) / (G.W.length * G.W.length);
+                    const sampleQualia = G.q[0] ? G.q[0].slice(0, 3).map(v => v.toFixed(4)) : 'none';
+                    console.log('🎮 Game State + Evolution:', {
+                        ballX: gameState.ball?.x,
+                        ballSpeed: Math.sqrt(gameState.ball?.vx**2 + gameState.ball?.vy**2),
+                        qualiaSum: qualiaSum.toFixed(3),
+                        avgWeight: avgW.toFixed(6),
+                        sampleQualia: sampleQualia,
+                        hasGameState: !!gameState
+                    });
+                }
+
+                if (gameState.ball && gameState.paddle && gameState.opponent) {
+                    // Map game state to node features naturally
+                    const ballX = gameState.ball.x / 800; // Normalize to [0,1]
+                    const ballY = gameState.ball.y / 400;
+                    const ballVX = gameState.ball.vx / 10; // Normalize velocity
+                    const ballVY = gameState.ball.vy / 10;
+                    const paddleY = gameState.paddle.y / 400;
+                    const opponentY = gameState.opponent.y / 400;
+
+                    // Update different nodes with different aspects of game state
+                    for (let i = 0; i < n; i++) {
+                        const nodeType = i % 6; // 6 different node types
+                        switch (nodeType) {
+                            case 0: // Ball position nodes
+                                G.X[i][0] = ballX;
+                                G.X[i][1] = ballY;
+                                break;
+                            case 1: // Ball velocity nodes
+                                G.X[i][0] = ballVX;
+                                G.X[i][1] = ballVY;
+                                break;
+                            case 2: // AI paddle nodes
+                                G.X[i][0] = paddleY;
+                                G.X[i][1] = ballY - paddleY; // Relative position
+                                break;
+                            case 3: // Opponent nodes
+                                G.X[i][0] = opponentY;
+                                G.X[i][1] = ballY - opponentY;
+                                break;
+                            case 4: // Game dynamics nodes
+                                G.X[i][0] = Math.abs(ballVX); // Ball speed
+                                G.X[i][1] = ballX > 0.5 ? 1 : 0; // Ball side
+                                break;
+                            case 5: // Strategic nodes
+                                G.X[i][0] = Math.abs(ballY - paddleY); // Distance to ball
+                                G.X[i][1] = ballVX > 0 ? 1 : 0; // Ball direction
+                                break;
+                        }
                     }
                 }
             }
 
-            // 2) OPTIMIZED: Simplified qualia evolution (only when needed)
-            if (shouldQuickUpdate) {
+            // 2) NATURAL: Qualia evolution based on game interactions - EVERY STEP for visible learning
+            if (true) { // Always evolve qualia for visible changes
                 const qNew = new Array(n);
-                const eta = opts.eta_q || 1e-3; // PERFORMANCE: Restored original learning rate
+
+                // NATURAL: Learning rate adapts to game intensity
+                let eta = opts.eta_q || 0.005; // STABLE: Controlled learning rate
+                if (observations.gameState) {
+                    const gameState = observations.gameState;
+                    if (gameState.ball) {
+                        // Higher learning during intense moments
+                        const ballSpeed = Math.sqrt(gameState.ball.vx * gameState.ball.vx + gameState.ball.vy * gameState.ball.vy);
+                        const intensity = Math.min(ballSpeed / 10, 2.0); // Normalize and cap
+                        eta = eta * (1 + intensity); // Increase learning during fast gameplay
+
+                        // Extra learning when ball is near AI paddle
+                        if (gameState.paddle && Math.abs(gameState.ball.x - gameState.paddle.x) < 100) {
+                            eta = eta * 1.5; // 50% more learning when ball is close
+                        }
+                    }
+                }
 
                 for (let i = 0; i < n; i++) {
                     // FIXED: Restore proper Clifford product computation for qualia evolution
                     let agg = new Float32Array(8).fill(0);
                     for (let j = 0; j < n; j++) {
                         const w = G.W[i][j] || 0;
-                        if (w > 1e-4) { // PERFORMANCE: Higher threshold to skip more computations
-                            // PERFORMANCE: Use direct addition instead of expensive Clifford product
-                            for (let k = 0; k < 8; k++) {
-                                agg[k] += w * G.q[j][k]; // Direct addition for performance
+                        if (w > 1e-5) { // BALANCED: Lower threshold for more dynamics
+                            // PERFORMANCE: Use direct addition most of the time, Clifford rarely
+                            if (G.stepCount % 10 === 0) {
+                                // Use proper Clifford product occasionally for dynamics
+                                const prod = cliffordMultiplyVec(CLIFF, G.q[i], G.q[j]);
+                                for (let k = 0; k < 8; k++) {
+                                    agg[k] += w * prod[k];
+                                }
+                            } else {
+                                // Use direct addition for performance most of the time
+                                for (let k = 0; k < 8; k++) {
+                                    agg[k] += w * G.q[j][k];
+                                }
                             }
                         }
                     }
 
-                    // Proper update with geometric algebra dynamics + enhanced noise for more visible evolution
-                    const noiseLevel = opts.gradNoise || 1e-3; // PERFORMANCE: Restored original noise level
-                    const noise = new Float32Array(8).map(() => (Math.random() - 0.5) * noiseLevel);
-                    const updated = addVec(addVec(G.q[i], scaleVec(agg, eta)), noise);
-                    qNew[i] = cliffordProject(updated);
+                    // DEBUG: Log learning details occasionally
+                    if (i === 0 && G.stepCount % 100 === 0) {
+                        const aggMag = Math.sqrt(agg.reduce((s, v) => s + v*v, 0));
+                        const oldMag = Math.sqrt(G.q[i].reduce((s, v) => s + v*v, 0));
+                        console.log('🧠 Learning Debug:', {
+                            step: G.stepCount,
+                            eta: eta.toFixed(4),
+                            aggMagnitude: aggMag.toFixed(6),
+                            oldQualiaMag: oldMag.toFixed(6),
+                            learningStrength: (eta * aggMag).toFixed(6)
+                        });
+                    }
+
+                    // NATURAL EVOLUTION: Update based on actual interactions, no artificial noise
+                    const updated = addVec(G.q[i], scaleVec(agg, eta));
+
+                    // STABILITY: Prevent explosion while allowing natural evolution
+                    const magnitude = Math.sqrt(updated.reduce((s, v) => s + v*v, 0));
+                    if (magnitude > 5.0) {
+                        // Scale down if too large, but don't normalize to 1.0
+                        const scale = 5.0 / magnitude;
+                        qNew[i] = scaleVec(updated, scale);
+                    } else if (magnitude < 0.1) {
+                        // Prevent collapse to zero
+                        const scale = 0.1 / magnitude;
+                        qNew[i] = scaleVec(updated, scale);
+                    } else {
+                        // Natural evolution within stable bounds
+                        qNew[i] = updated;
+                    }
                 }
                 G.q = qNew;
+
+                // NATURAL: Update weight matrix based on qualia evolution for dynamic S
+                let totalWeightChange = 0;
+                let weightCount = 0;
+
+                for (let i = 0; i < n; i++) {
+                    for (let j = 0; j < n; j++) {
+                        if (i !== j) {
+                            const oldWeight = G.W[i][j];
+
+                            // Compute similarity between evolved qualia
+                            const similarity = dot(G.q[i], G.q[j]) / (norm2(G.q[i]) * norm2(G.q[j]) + 1e-9);
+                            const targetWeight = Math.max(0, similarity * 0.1); // Scale to reasonable range
+
+                            // Gradual adaptation towards target
+                            const adaptation = 0.2; // MUCH HIGHER adaptation rate for visible S changes
+                            G.W[i][j] = G.W[i][j] * (1 - adaptation) + targetWeight * adaptation;
+
+                            totalWeightChange += Math.abs(G.W[i][j] - oldWeight);
+                            weightCount++;
+                        }
+                    }
+                }
+
+                // DEBUG: Log weight evolution occasionally
+                if (G.stepCount % 100 === 0) {
+                    const avgChange = totalWeightChange / weightCount;
+                    const newAvgWeight = G.W.flat().reduce((s, v) => s + v, 0) / (G.W.length * G.W.length);
+                    console.log('🔗 Weight Evolution Debug:', {
+                        step: G.stepCount,
+                        avgWeightChange: avgChange.toFixed(8),
+                        newAvgWeight: newAvgWeight.toFixed(8),
+                        totalChange: totalWeightChange.toFixed(6)
+                    });
+                }
+
+                // Renormalize rows to maintain probability structure
+                for (let i = 0; i < n; i++) {
+                    const rowSum = G.W[i].reduce((s, v) => s + v, 0) + 1e-9;
+                    for (let j = 0; j < n; j++) {
+                        G.W[i][j] = G.W[i][j] / rowSum;
+                    }
+                }
             }
 
             // 3) OPTIMIZED: Compute attention using AST filter (less frequently)
@@ -1095,9 +1242,9 @@
                 const astOut = G.astFilter.step(noeons);
                 aSchema = astOut.a;
 
-                // 4) Apply sheaf diffusion to update connectivity
+                // 4) Apply sheaf diffusion to update connectivity - NOW GAME RESPONSIVE
                 const B = computeBinding(G.q, G.W);
-                sheafResult = G.sheafDiffusion.forward(B, G.q);
+                sheafResult = G.sheafDiffusion.forward(B, G.q, G.X); // Pass node features for game responsiveness
                 G.W = sheafResult.W;
 
                 // 5) Compute measured attention
@@ -1152,7 +1299,7 @@
             }
 
             // PERFORMANCE FIX: Run proof harness much less frequently to prevent lag
-            if (shouldFullUpdate && G.stepCount % 25 === 0) { // Only every 125th step (25*5)
+            if (shouldFullUpdate && G.stepCount % 50 === 0) { // Only every 500th step (50*10)
                 G.proofHarness.checkDagger(G.q);
                 if (G.lastW) {
                     G.proofHarness.checkGWLip(evalRes.C, G.lastC, G.W, G.lastW);
@@ -1183,8 +1330,19 @@
             const imaginationEnabled = evalRes.C > (opts.theta || 0.7);
             let imaginationPaths = [];
             if (imaginationEnabled && shouldFullUpdate && G.worldModel) {
-                // Use current game state for imagination
-                const currentState = observations.gameState || [0.5, 0.5, 0, 0, 0.5, 0.1];
+                // Use current game state for imagination - FIXED: Convert object to array
+                let currentState = [0.5, 0.5, 0, 0, 0.5, 0.1]; // Default state
+                if (observations.gameState && observations.gameState.ball) {
+                    const gs = observations.gameState;
+                    currentState = [
+                        gs.ball.x / 800,        // Ball X normalized
+                        gs.ball.y / 400,        // Ball Y normalized
+                        gs.ball.vx / 10,        // Ball VX normalized
+                        gs.ball.vy / 10,        // Ball VY normalized
+                        gs.paddle.y / 400,      // Paddle Y normalized
+                        Math.abs(gs.ball.y - gs.paddle.y) / 400  // Distance normalized
+                    ];
+                }
 
                 // OPTIMIZATION 10: Simplified qualia pooling
                 const pooledQ = vecZeros(8);
@@ -1399,7 +1557,7 @@
                 this.n_iters = n_iters;
             }
 
-            forward(scores, Q) {
+            forward(scores, Q, X = null) {
                 const N = scores.length;
                 let W = scores.map(row => row.slice());
 
@@ -1410,7 +1568,15 @@
                             try {
                                 // Use both standard formula and enhanced safety
                                 const gradQ = normL2(sub(Q[i] || vecZeros(8), Q[j] || vecZeros(8)));
-                                const diffusionWeight = Math.exp(-Math.max(gradQ, eps) / this.sigma);
+                                let diffusionWeight = Math.exp(-Math.max(gradQ, eps) / this.sigma);
+
+                                // GAME STATE ENHANCEMENT: Node feature similarity
+                                if (X && X[i] && X[j]) {
+                                    const featureDist = Math.sqrt(X[i].reduce((s, v, k) => s + Math.pow(v - (X[j][k] || 0), 2), 0));
+                                    const featureWeight = Math.exp(-featureDist * 0.5 / this.sigma);
+                                    diffusionWeight = 0.7 * diffusionWeight + 0.3 * featureWeight; // Blend qualia and features
+                                }
+
                                 W[i][j] *= diffusionWeight;
 
                                 // Additional qualia-based enhancement
@@ -3386,22 +3552,36 @@
                         this.aiConsciousness
                     );
 
-                    // Apply strategic action with consciousness-enhanced speed
+                    // ENHANCED AI PHYSICS: Apply strategic action with momentum and acceleration
                     const consciousnessBonus = Math.max(0, Math.min(2, this.aiConsciousness * 2));
-                    const adjustedSpeed = this.ai.speed * (1 + consciousnessBonus);
+                    const baseSpeed = this.ai.speed * (1 + consciousnessBonus);
+
+                    // Initialize velocity if not exists
+                    if (!this.ai.velocity) this.ai.velocity = 0;
+
+                    // Apply acceleration based on strategic action
+                    const acceleration = 0.8;
+                    const maxVelocity = baseSpeed * 1.5;
+                    const friction = 0.85;
 
                     if (strategicAction === 0) { // UP
-                        this.ai.y -= adjustedSpeed;
+                        this.ai.velocity -= acceleration;
+                        this.ai.velocity = Math.max(-maxVelocity, this.ai.velocity);
                         newAction = 'move_up';
                         this.addAIThought(`Strategic move up (${this.currentStrategy})`, "up");
                     } else if (strategicAction === 1) { // DOWN
-                        this.ai.y += adjustedSpeed;
+                        this.ai.velocity += acceleration;
+                        this.ai.velocity = Math.min(maxVelocity, this.ai.velocity);
                         newAction = 'move_down';
                         this.addAIThought(`Strategic move down (${this.currentStrategy})`, "down");
                     } else { // IDLE
+                        this.ai.velocity *= friction; // Apply friction when idle
                         newAction = 'idle';
                         this.addAIThought(`Strategic positioning (${this.currentStrategy})`, "idle");
                     }
+
+                    // Apply velocity to position
+                    this.ai.y += this.ai.velocity;
                 } else {
                     // Fallback to simple consciousness-based behavior
                     const ballCenter = this.ball.y;
@@ -3615,19 +3795,54 @@
                 // Update AI
                 this.updateAI();
 
-                // Update ball
+                // ENHANCED BALL PHYSICS
                 this.ball.x += this.ball.vx;
                 this.ball.y += this.ball.vy;
 
-                // Ball collision with top/bottom
+                // Enhanced ball collision with top/bottom walls
                 if (this.ball.y <= this.ball.radius || this.ball.y >= this.height - this.ball.radius) {
-                    this.ball.vy = -this.ball.vy;
+                    this.ball.vy = -this.ball.vy * 0.98; // Slight energy loss for realism
+                    this.ball.y = Math.max(this.ball.radius, Math.min(this.height - this.ball.radius, this.ball.y));
+
+                    // Add slight random variation to prevent predictable bounces
+                    this.ball.vy += (Math.random() - 0.5) * 0.5;
                 }
 
-                // Ball collision with paddles
-                if (this.checkCollision(this.ball, this.player) || this.checkCollision(this.ball, this.ai)) {
+                // Enhanced paddle collision detection and physics
+                const playerCollision = this.checkCollision(this.ball, this.player);
+                const aiCollision = this.checkCollision(this.ball, this.ai);
+
+                if (playerCollision || aiCollision) {
+                    const paddle = playerCollision ? this.player : this.ai;
+
+                    // Calculate hit position relative to paddle center (-1 to 1)
+                    const hitPos = (this.ball.y - (paddle.y + paddle.height / 2)) / (paddle.height / 2);
+
+                    // Reverse horizontal direction
                     this.ball.vx = -this.ball.vx;
-                    this.ball.vx *= 1.05; // Increase speed slightly
+
+                    // Adjust vertical velocity based on hit position (spin effect)
+                    this.ball.vy += hitPos * 2;
+
+                    // Speed increase with variation
+                    const speedMultiplier = 1.02 + Math.random() * 0.06; // 1.02 to 1.08
+                    this.ball.vx *= speedMultiplier;
+                    this.ball.vy *= speedMultiplier;
+
+                    // Limit maximum speed
+                    const maxSpeed = 12;
+                    const currentSpeed = Math.sqrt(this.ball.vx * this.ball.vx + this.ball.vy * this.ball.vy);
+                    if (currentSpeed > maxSpeed) {
+                        this.ball.vx = (this.ball.vx / currentSpeed) * maxSpeed;
+                        this.ball.vy = (this.ball.vy / currentSpeed) * maxSpeed;
+                    }
+
+                    // Prevent ball from getting stuck in paddle
+                    if (playerCollision) {
+                        this.ball.x = this.player.x + this.player.width + this.ball.radius + 1;
+                    } else {
+                        this.ball.x = this.ai.x - this.ball.radius - 1;
+                    }
                 }
 
                 // Scoring
@@ -4446,11 +4661,27 @@
                         ]
                     } : null;
 
-                    // Run advanced consciousness step
-                    const result = await stepTick(this.consciousnessGraph, { gameState: gameState?.gameState }, {
-                        eta_q: 0.05,
-                        gradNoise: 1e-3,
-                        lambda: 0.1,
+                    // Run advanced consciousness step - FIXED: Pass full game state object
+                    const fullGameState = this.pongGame ? {
+                        ball: {
+                            x: this.pongGame.ball.x,
+                            y: this.pongGame.ball.y,
+                            vx: this.pongGame.ball.vx,
+                            vy: this.pongGame.ball.vy
+                        },
+                        paddle: {
+                            x: this.pongGame.ai.x,
+                            y: this.pongGame.ai.y
+                        },
+                        opponent: {
+                            x: this.pongGame.player.x,
+                            y: this.pongGame.player.y
+                        }
+                    } : null;
+
+                    const result = await stepTick(this.consciousnessGraph, { gameState: fullGameState }, {
+                        eta_q: 0.005,  // STABLE: Controlled learning rate to prevent explosion
+                        lambda: 2.0,   // HIGHER: Make S more sensitive to weight changes
                         consensus: 0.5,
                         theta: 0.7
                     });
@@ -4525,8 +4756,8 @@
                     console.error('Consciousness loop error:', error);
                 }
 
-                // OPTIMIZATION: Memory cleanup every 50 steps
-                if (this.step % 1000 === 0) {
+                // PERFORMANCE: More frequent memory cleanup to prevent accumulation
+                if (this.step % 100 === 0) {
                     this.cleanupMemory();
                 }
 
